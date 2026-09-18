@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+*.local
+tests/fixtures/
+tests/out/
+.DS_Store
