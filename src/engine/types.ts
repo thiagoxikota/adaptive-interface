@@ -15,6 +15,9 @@ export type Mode = 'NORMAL' | 'SIMPLIFY' | 'FOCUS' | 'EXPERT'
 
 export const MODES: readonly Mode[] = ['NORMAL', 'SIMPLIFY', 'FOCUS', 'EXPERT'] as const
 
+/** Component focused when FOCUS is entered with no pointer target (keyboard 3). Shared by engine and UI. */
+export const DEFAULT_FOCUS_TARGET = 'chart'
+
 export type CameraStatus =
   | 'idle'        // not started yet
   | 'loading'     // model / wasm loading, camera permission pending
@@ -105,7 +108,7 @@ export interface EngineState {
    * Purely for the debug overlay so the presenter can see the ramp.
    */
   progress: { simplify: number; focus: number; expert: number; relax: number }
-  /** true while a keyboard override suppresses camera transitions */
+  /** true while the cooldown started by a key press is still running */
   keyboardHold: boolean
   /** ms remaining on the post-transition cooldown (0 when free) */
   cooldownMs: number
@@ -139,9 +142,9 @@ export interface Thresholds {
   dwellMs: number
   /** ms after any transition during which no new transition fires */
   cooldownMs: number
-  /** ms a keyboard override blocks camera-driven transitions */
+  /** ms after a key press during which the camera cannot change the mode */
   keyboardHoldMs: number
-  /** ms of face absence after which the UI returns to NORMAL */
+  /** ms of face absence after which the UI returns to NORMAL (long: a presenter turns to the audience) */
   absenceMs: number
   /** min smoothed presence to trust face signals at all */
   presenceMin: number
@@ -162,8 +165,8 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   sustainRelaxMs: 1500,
   dwellMs: 900,
   cooldownMs: 1500,
-  keyboardHoldMs: 6000,
-  absenceMs: 3000,
+  keyboardHoldMs: 2000,
+  absenceMs: 10000,
   presenceMin: 0.6,
 }
 

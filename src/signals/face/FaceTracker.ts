@@ -259,8 +259,15 @@ export class FaceTracker {
     this.publish({ ...this.snapshot, status: 'loading' })
     try {
       await video.play()
-    } catch {
-      /* muted autoplay; a later user gesture will resume it */
+    } catch (e) {
+      // autoplay policy blocked playback: surface it as a recoverable state so
+      // the Start camera button (a user gesture) can call start() again
+      if (gen !== this.gen) return
+      stopStream(stream)
+      this.stream = null
+      video.srcObject = null
+      this.failCamera(gen, `Video playback blocked (${describeError(e)}); press Start camera`)
+      return
     }
     if (gen !== this.gen) return
     this.startLoop(gen)
@@ -339,6 +346,8 @@ export class FaceTracker {
   }
 
   private failModel(message: string): void {
+    // a getUserMedia still pending must not adopt its stream into a dead tracker
+    this.gen++
     this.active = false
     this.wantLandmarker = false
     this.stopLoop()

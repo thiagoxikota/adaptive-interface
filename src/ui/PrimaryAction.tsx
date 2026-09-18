@@ -28,7 +28,6 @@ export function PrimaryAction({ size, focus, reduced }: PrimaryActionProps) {
       animate={{ opacity: receded ? 0.62 : 1, scale: receded ? 0.95 : 1 }}
       whileTap={reduced ? undefined : { scale: 0.97 }}
       transition={reduced ? INSTANT : { layout: SPRING, opacity: FADE, scale: SPRING }}
-      style={{ pointerEvents: receded ? 'none' : undefined }}
     >
       Dispatch {PENDING_ROUTES} pending routes
     </motion.button>

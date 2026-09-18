@@ -13,6 +13,7 @@ import { FleetCard } from './FleetCard'
 import { PrimaryAction } from './PrimaryAction'
 import { ShortcutStrip } from './ShortcutStrip'
 import { KeyboardHint } from './KeyboardHint'
+import { SignalBar } from './SignalBar'
 import { DebugOverlay } from './DebugOverlay'
 import { FADE, INSTANT, SPRING, exitTransition } from './motion'
 import './dashboard.css'
@@ -155,6 +156,7 @@ export function Dashboard({ model, insight }: DashboardProps) {
             reduced={reduced}
             onStartCamera={model.startCamera}
           />
+          <SignalBar model={model} reduced={reduced} />
           <div className="frame">
             <AnimatePresence initial={false} mode="popLayout">
               {layout.rail && <Rail key="rail" dense={layout.density === 'dense'} reduced={reduced} />}

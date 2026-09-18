@@ -18,8 +18,9 @@ export interface CardProps {
 
 /**
  * A morphing surface. `layout` lets Framer FLIP it between grid positions;
- * FOCUS recedes every card except the target (scale 0.96, opacity 0.35,
- * pointer-events none) so the user still sees what moved out of the way.
+ * FOCUS recedes every card except the target (scale 0.95, opacity 0.62) so
+ * the user still sees what moved out of the way; they stay hoverable so a
+ * pointer resting on another card can end the focus.
  */
 export function Card({ id, focus, index, reduced, className, children, ref, style }: CardProps) {
   const receded = focus !== null && focus !== id
@@ -36,7 +37,7 @@ export function Card({ id, focus, index, reduced, className, children, ref, styl
       animate={{ opacity: receded ? 0.62 : 1, scale: receded ? 0.95 : 1, y: 0 }}
       exit={{ opacity: 0, y: -8, transition: exitTransition(reduced) }}
       transition={enterTransition(reduced, index)}
-      style={{ ...style, pointerEvents: receded ? 'none' : undefined }}
+      style={style}
     >
       {children}
     </motion.div>

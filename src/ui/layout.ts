@@ -1,4 +1,4 @@
-import type { Mode } from '../engine/types'
+import { DEFAULT_FOCUS_TARGET, type Mode } from '../engine/types'
 
 /** The five components a FOCUS transition may target (their data-focus-id). */
 export const FOCUSABLE = ['chart', 'kpis', 'activity', 'fleet', 'primary-action'] as const
@@ -9,7 +9,7 @@ export function isFocusId(value: string | null): value is FocusId {
 }
 
 /** Component focused when FOCUS is entered without a known target (keyboard 3 with the pointer off the grid). */
-export const DEFAULT_FOCUS: FocusId = 'chart'
+export const DEFAULT_FOCUS: FocusId = DEFAULT_FOCUS_TARGET
 
 export type Density = 'airy' | 'normal' | 'dense'
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { InteractionHeuristicEngine } from './InteractionHeuristicEngine'
 import {
+  DEFAULT_FOCUS_TARGET,
   DEFAULT_THRESHOLDS as T,
   EMPTY_FACE,
   EMPTY_MOUSE,
@@ -274,6 +275,23 @@ describe('InteractionHeuristicEngine: cooldown, hysteresis, single frames', () =
     expect(s.progress.expert).toBeLessThan(0.2)
   })
 
+  it('a stale face snapshot (no new camera frame) stops feeding the ramps', () => {
+    const sim = new Sim()
+    sim.run(300, SMILE)
+    const before = sim.state.progress.expert
+    expect(before).toBeGreaterThan(0)
+    // the camera froze: same snapshot, ts no longer advancing
+    const frozenTs = sim.now
+    const frames = Math.round(1500 / DT)
+    let state = sim.state
+    for (let i = 0; i < frames; i++) {
+      sim.now += DT
+      state = sim.engine.update({ face: { ...EMPTY_FACE, ...SMILE, ts: frozenTs }, mouse: EMPTY_MOUSE, now: sim.now })
+    }
+    expect(state.mode).toBe('NORMAL')
+    expect(state.progress.expert).toBe(0)
+  })
+
   it('camera not running -> no camera transitions at all', () => {
     const sim = new Sim()
     const r = sim.run(3000, { ...SMILE, status: 'loading' })
@@ -289,49 +307,60 @@ describe('InteractionHeuristicEngine: cooldown, hysteresis, single frames', () =
 })
 
 describe('InteractionHeuristicEngine: keyboard override', () => {
-  it('setManual switches immediately with source keyboard and starts the hold', () => {
+  it('setManual switches immediately with source keyboard and starts a short cooldown', () => {
     const sim = new Sim()
     sim.run(200, NEUTRAL)
     const s = sim.engine.setManual('EXPERT', sim.now)
     expect(s.mode).toBe('EXPERT')
     expect(s.source).toBe('keyboard')
     expect(s.keyboardHold).toBe(true)
+    expect(s.cooldownMs).toBeCloseTo(T.keyboardHoldMs, 6)
     expect(s.since).toBe(sim.now)
     expect(s.lastTransition).toMatchObject({ from: 'NORMAL', to: 'EXPERT', reason: 'keyboard EXPERT' })
   })
 
-  it('keyboard hold blocks camera transitions, then expires and needs a fresh gesture', () => {
+  it('a gesture started after the key press fires as soon as the cooldown ends', () => {
     const sim = new Sim()
     sim.run(100, NEUTRAL)
     sim.engine.setManual('SIMPLIFY', sim.now)
-    const holdStart = sim.now
-
+    const pressedAt = sim.now
     const during = sim.run(T.keyboardHoldMs - 200, SMILE)
     expect(during.state.mode).toBe('SIMPLIFY')
     expect(during.state.keyboardHold).toBe(true)
     expect(during.fired).toHaveLength(0)
-
-    const after = sim.run(2000, SMILE)
+    const after = sim.run(1500, SMILE)
     expect(after.state.mode).toBe('EXPERT')
     expect(after.state.keyboardHold).toBe(false)
-    // the smile held through the whole hold must still be sustained AFTER it ends
-    expectFiredAround(after.firedAt, holdStart + T.keyboardHoldMs + T.sustainExpertMs)
+    expectFiredAround(after.firedAt, pressedAt + T.keyboardHoldMs)
   })
 
-  it('release() ends the hold early and the camera drives again', () => {
+  it('an expression already on the face when the key is pressed cannot undo the key press', () => {
+    const sim = new Sim()
+    sim.run(400, SMILE)
+    sim.engine.setManual('SIMPLIFY', sim.now)
+    const held = sim.run(4000, SMILE)
+    expect(held.state.mode).toBe('SIMPLIFY')
+    expect(held.fired).toHaveLength(0)
+    sim.run(500, NEUTRAL)
+    const again = sim.run(1500, SMILE)
+    expect(again.state.mode).toBe('EXPERT')
+  })
+
+  it('release() ends the cooldown early and the camera drives again', () => {
     const sim = new Sim()
     sim.run(100, NEUTRAL)
     sim.engine.setManual('SIMPLIFY', sim.now)
-    sim.run(500, SMILE)
+    sim.run(500, NEUTRAL)
     const released = sim.engine.release(sim.now)
     expect(released.keyboardHold).toBe(false)
+    expect(released.cooldownMs).toBe(0)
     const releaseAt = sim.now
     const r = sim.run(1500, SMILE)
     expect(r.state.mode).toBe('EXPERT')
     expectFiredAround(r.firedAt, releaseAt + T.sustainExpertMs)
   })
 
-  it('setManual to the current mode only refreshes the hold, no transition record', () => {
+  it('setManual to the current mode only restarts the cooldown, no transition record', () => {
     const sim = new Sim()
     sim.run(100, NEUTRAL)
     const s = sim.engine.setManual('NORMAL', sim.now)
@@ -340,19 +369,22 @@ describe('InteractionHeuristicEngine: keyboard override', () => {
     expect(s.lastTransition).toBeNull()
   })
 
-  it('keyboard FOCUS targets the component under the pointer', () => {
+  it('keyboard FOCUS targets the component under the pointer, else the default target', () => {
     const sim = new Sim()
     sim.run(200, NEUTRAL, 'kpi-grid')
     const s = sim.engine.setManual('FOCUS', sim.now)
     expect(s.mode).toBe('FOCUS')
     expect(s.focusTarget).toBe('kpi-grid')
+    const sim2 = new Sim()
+    sim2.run(200, NEUTRAL, null)
+    expect(sim2.engine.setManual('FOCUS', sim2.now).focusTarget).toBe(DEFAULT_FOCUS_TARGET)
   })
 
-  it('camera transitions during the hold do not fire even when fully ramped', () => {
+  it('camera transitions during the keyboard cooldown do not fire even when fully ramped', () => {
     const sim = new Sim()
     sim.run(100, NEUTRAL)
     sim.engine.setManual('NORMAL', sim.now)
-    const r = sim.run(3000, BROW_LEAN)
+    const r = sim.run(T.keyboardHoldMs - 100, BROW_LEAN)
     expect(r.state.mode).toBe('NORMAL')
     expect(r.state.progress.simplify).toBe(1)
   })
@@ -366,7 +398,7 @@ describe('InteractionHeuristicEngine: returning to NORMAL', () => {
     const r = sim.run(T.absenceMs + 500, ABSENT)
     expect(r.state.mode).toBe('NORMAL')
     expectFiredAround(r.firedAt, leftAt + T.absenceMs)
-    expect(r.state.lastTransition?.reason).toBe('face absent 3000ms')
+    expect(r.state.lastTransition?.reason).toBe(`face absent ${T.absenceMs}ms`)
   })
 
   it('a short absence does not reset the mode', () => {
@@ -444,11 +476,19 @@ describe('InteractionHeuristicEngine: FOCUS exit', () => {
     expect(sim.state.mode).toBe('FOCUS')
   }
 
-  it('cursor leaves the target for 1200ms -> NORMAL', () => {
+  it('cursor on blank space or a parked pointer keeps FOCUS', () => {
+    const sim = new Sim()
+    intoFocus(sim)
+    const r = sim.run(3000, LEAN, null)
+    expect(r.state.mode).toBe('FOCUS')
+    expect(r.fired).toHaveLength(0)
+  })
+
+  it('cursor rests on another component for 1200ms -> NORMAL', () => {
     const sim = new Sim()
     intoFocus(sim)
     const leftAt = sim.now
-    const r = sim.run(1600, LEAN, null)
+    const r = sim.run(1600, LEAN, 'fleet-table')
     expect(r.state.mode).toBe('NORMAL')
     expectFiredAround(r.firedAt, leftAt + 1200)
     expect(r.state.lastTransition?.reason).toMatch(/cursor left 'revenue-chart'/)

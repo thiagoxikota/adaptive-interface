@@ -1,4 +1,5 @@
 import {
+  DEFAULT_FOCUS_TARGET,
   DEFAULT_THRESHOLDS,
   type EngineInput,
   type EngineState,
@@ -24,8 +25,14 @@ import {
  */
 const MAX_DT_MS = 100
 
-/** ms the cursor must be off the target, or the lean released, to leave FOCUS */
+/** ms the cursor must rest on another component, or the lean be released, to leave FOCUS */
 const FOCUS_EXIT_MS = 1200
+
+/**
+ * A face snapshot older than this (no camera frame since) is not evidence:
+ * a frozen last frame must not keep feeding a gesture ramp.
+ */
+const STALE_FACE_MS = 500
 
 /** Rate at which an accumulator drains while its gesture is released. */
 const DECAY_FACTOR = 2
@@ -98,8 +105,8 @@ export class InteractionHeuristicEngine {
 
   private lastNow: number | null = null
   private cooldownUntil = 0
-  private holdUntil = 0
-  private holdActive = false
+  /** true while the current cooldown was started by a key press (debug display only) */
+  private keyboardCooldown = false
   /** dwellTarget seen on the latest update(); used when FOCUS is chosen by keyboard */
   private lastDwellTarget: string | null = null
 
@@ -125,14 +132,7 @@ export class InteractionHeuristicEngine {
     this.lastNow = now
     this.lastDwellTarget = mouse.dwellTarget
 
-    if (this.holdActive && now >= this.holdUntil) {
-      // The hold expires quietly: ramps restart from zero so the camera cannot
-      // fire on the very next frame from progress it built during the hold.
-      this.holdActive = false
-      this.resetRamps()
-    }
-
-    const cameraRunning = face.status === 'running'
+    const cameraRunning = face.status === 'running' && now - face.ts <= STALE_FACE_MS
     const faceOk = cameraRunning && face.presence >= t.presenceMin
     const leanOk = faceOk && face.calibrated
 
@@ -162,8 +162,10 @@ export class InteractionHeuristicEngine {
     }
 
     if (this.mode === 'FOCUS') {
-      this.focusLeaveAcc =
-        mouse.dwellTarget !== this.focusTarget ? Math.min(FOCUS_EXIT_MS, this.focusLeaveAcc + dt) : 0
+      // Only a move onto ANOTHER component counts as leaving; blank space or a
+      // parked pointer keeps the focus (the lean release is the other way out).
+      const movedElsewhere = mouse.dwellTarget !== null && mouse.dwellTarget !== this.focusTarget
+      this.focusLeaveAcc = movedElsewhere ? Math.min(FOCUS_EXIT_MS, this.focusLeaveAcc + dt) : 0
       this.focusLeanAcc =
         leanOk && face.proximity < t.leanOff ? Math.min(FOCUS_EXIT_MS, this.focusLeanAcc + dt) : 0
     } else {
@@ -171,7 +173,7 @@ export class InteractionHeuristicEngine {
       this.focusLeanAcc = 0
     }
 
-    const canFire = !this.holdActive && now >= this.cooldownUntil
+    const canFire = now >= this.cooldownUntil
     const pick = this.pickTransition(input, simplifyActive)
     if (pick) {
       if (pick.to === this.mode) {
@@ -190,26 +192,42 @@ export class InteractionHeuristicEngine {
     return this.snapshot
   }
 
+  /**
+   * Keyboard override: switches at once, then a short cooldown (keyboardHoldMs)
+   * during which the camera cannot flip the mode back. Any gesture that is
+   * physically held at this moment is spent: it must be released and redone
+   * before it can drive a transition, so the camera never "undoes" a key press
+   * with the expression the presenter already had on their face.
+   */
   setManual(mode: Mode, now: number): EngineState {
     this.lastNow ??= now
-    const target = mode === 'FOCUS' ? this.lastDwellTarget : null
-    this.holdActive = true
-    this.holdUntil = now + this.t.keyboardHoldMs
-    this.resetRamps()
+    const target = mode === 'FOCUS' ? (this.lastDwellTarget ?? DEFAULT_FOCUS_TARGET) : null
     if (mode !== this.mode || (mode === 'FOCUS' && target !== this.focusTarget)) {
       this.transition(mode, target, now, 'keyboard', `keyboard ${mode}`)
+    } else {
+      this.resetRamps()
     }
+    this.cooldownUntil = now + this.t.keyboardHoldMs
+    this.keyboardCooldown = true
+    this.spendHeldGestures()
     this.snapshot = this.buildState(now)
     return this.snapshot
   }
 
+  /** Ends any cooldown at once; the camera drives again on the next sustained gesture. */
   release(now: number): EngineState {
-    this.holdActive = false
-    this.holdUntil = 0
     this.cooldownUntil = 0
+    this.keyboardCooldown = false
     this.resetRamps()
     this.snapshot = this.buildState(now)
     return this.snapshot
+  }
+
+  private spendHeldGestures(): void {
+    if (this.browLatch.engaged && this.leanLatch.engaged) this.spent.simplify = true
+    if (this.leanLatch.engaged) this.spent.focus = true
+    if (this.smileLatch.engaged) this.spent.expert = true
+    if (this.leanBackLatch.engaged) this.spent.relax = true
   }
 
   private ramp(g: Gesture, active: boolean, dt: number, threshold: number): void {
@@ -310,8 +328,10 @@ export class InteractionHeuristicEngine {
     this.focusTarget = to === 'FOCUS' ? focusTarget : null
     this.since = now
     this.source = source
-    // Keyboard transitions are covered by the hold; cooldown is for camera-driven ones.
-    if (source === 'camera') this.cooldownUntil = now + this.t.cooldownMs
+    if (source === 'camera') {
+      this.cooldownUntil = now + this.t.cooldownMs
+      this.keyboardCooldown = false
+    }
     // Every transition consumes the gesture that caused it and any partial
     // ramps: the next one must be sustained fresh.
     this.resetRamps()
@@ -340,7 +360,7 @@ export class InteractionHeuristicEngine {
         expert: clamp01(this.acc.expert / t.sustainExpertMs),
         relax: clamp01(this.acc.relax / t.sustainRelaxMs),
       },
-      keyboardHold: this.holdActive,
+      keyboardHold: this.keyboardCooldown && now < this.cooldownUntil,
       cooldownMs: Math.max(0, this.cooldownUntil - now),
       lastTransition: this.lastTransition,
     }

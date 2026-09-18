@@ -974,3 +974,180 @@
     gap: 6px;
   }
 }
+
+/* signal bar: what the camera sees and how close each gesture is to switching */
+
+.signalbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 44px;
+  padding: 6px var(--space-6);
+  background: var(--color-card);
+  border-bottom: var(--rule);
+  font-size: 13px;
+}
+
+.signal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 190px;
+}
+
+.signal-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-line-strong);
+}
+
+.signal-status[data-status='running'] .dot {
+  background: var(--color-ok);
+}
+
+.signal-status[data-status='loading'] .dot {
+  background: var(--color-warn);
+}
+
+.signal-status[data-status='error'] .dot,
+.signal-status[data-status='no-camera'] .dot {
+  background: var(--color-accent);
+}
+
+.signal-cool {
+  font-weight: 500;
+  color: var(--color-ink-2);
+}
+
+.gchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gchip {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--color-line-strong);
+  background: var(--color-card);
+  color: var(--color-ink-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.gchip-fill,
+.gchip-level {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* how strong the signal is right now (thin line at the bottom) */
+.gchip-level {
+  top: auto;
+  height: 3px;
+  width: var(--level, 0%);
+  background: var(--color-ink);
+  opacity: 0.35;
+  transition: width 120ms linear;
+}
+
+/* how long the gesture has been held (fills the chip) */
+.gchip-fill {
+  width: var(--fill, 0%);
+  background: var(--color-accent-soft);
+  transition: width 120ms linear;
+}
+
+.gchip[data-armed] {
+  border-color: var(--color-accent);
+  color: var(--color-ink);
+}
+
+.gchip[data-armed] .gchip-level {
+  background: var(--color-accent);
+  opacity: 1;
+}
+
+.gchip[data-active] {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.gchip-label,
+.gchip-val {
+  position: relative;
+}
+
+.gchip-arrow {
+  color: var(--color-ink-2);
+}
+
+.gchip-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-2);
+  min-width: 3ch;
+}
+
+.signal-back {
+  margin-left: auto;
+}
+
+.signal-back kbd,
+.toast kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  margin-left: 6px;
+}
+
+/* transition toast: why the layout just changed, and the way back */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(720px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toast-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.app[data-debug] .toast {
+  left: calc((100vw - 344px) / 2);
+}
