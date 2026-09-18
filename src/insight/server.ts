@@ -60,6 +60,7 @@ function parseRequest(raw: string): InsightRequest | null {
 }
 
 function resolveApiKey(): string | null {
+  if (process.env.INSIGHT_DISABLED === '1') return null
   const fromEnv = process.env.ANTHROPIC_API_KEY?.trim()
   if (fromEnv) return fromEnv
   try {

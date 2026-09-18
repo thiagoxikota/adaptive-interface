@@ -33,7 +33,7 @@ export function Card({ id, focus, index, reduced, className, children, ref, styl
       data-receded={receded ? '' : undefined}
       className={className ? `card ${className}` : 'card'}
       initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: receded ? 0.35 : 1, scale: receded ? 0.96 : 1, y: 0 }}
+      animate={{ opacity: receded ? 0.62 : 1, scale: receded ? 0.95 : 1, y: 0 }}
       exit={{ opacity: 0, y: -8, transition: exitTransition(reduced) }}
       transition={enterTransition(reduced, index)}
       style={{ ...style, pointerEvents: receded ? 'none' : undefined }}

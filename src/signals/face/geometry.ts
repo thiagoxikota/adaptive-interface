@@ -53,17 +53,22 @@ export function pickBlendshapes(categories: readonly Category[] | undefined): Bl
 }
 
 /**
- * Forehead-top to chin distance in units of frame HEIGHT. `aspect` is
- * videoWidth / videoHeight; x is rescaled by it so a rolled head measures the
- * same as an upright one.
+ * Face size in units of frame HEIGHT, built from two measures that do not
+ * move when the mouth does: the distance between the outer eye corners
+ * (33-263) and the forehead-top to nose-tip height (10-1). Forehead-to-chin
+ * grows about 10% on a smile because the jaw drops, which read as "leaning
+ * in"; these two do not. `aspect` is videoWidth / videoHeight; x is rescaled
+ * by it so a rolled head measures the same as an upright one.
  */
 export function faceHeightFromLandmarks(landmarks: readonly NormalizedLandmark[], aspect: number): number {
   const top = landmarks[LANDMARK_FOREHEAD_TOP]
-  const chin = landmarks[LANDMARK_CHIN]
-  if (!top || !chin) return 0
-  const dx = (top.x - chin.x) * aspect
-  const dy = top.y - chin.y
-  return Math.hypot(dx, dy)
+  const nose = landmarks[LANDMARK_NOSE_TIP]
+  const eyeR = landmarks[LANDMARK_RIGHT_EYE_OUTER]
+  const eyeL = landmarks[LANDMARK_LEFT_EYE_OUTER]
+  if (!top || !nose || !eyeR || !eyeL) return 0
+  const upper = Math.hypot((top.x - nose.x) * aspect, top.y - nose.y)
+  const eyes = Math.hypot((eyeR.x - eyeL.x) * aspect, eyeR.y - eyeL.y)
+  return upper + eyes
 }
 
 export interface HeadAngles {

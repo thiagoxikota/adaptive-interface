@@ -149,9 +149,9 @@ export interface Thresholds {
 
 export const DEFAULT_THRESHOLDS: Thresholds = {
   browOn: 0.35,
-  browOff: 0.2,
-  leanOn: 1.12,
-  leanOff: 1.06,
+  browOff: 0.24,
+  leanOn: 1.15,
+  leanOff: 1.08,
   leanBackOn: 0.9,
   leanBackOff: 0.95,
   smileOn: 0.45,

@@ -25,7 +25,7 @@ export function PrimaryAction({ size, focus, reduced }: PrimaryActionProps) {
       data-focused={focused ? '' : undefined}
       data-size={size}
       className="primary"
-      animate={{ opacity: receded ? 0.35 : 1, scale: receded ? 0.96 : 1 }}
+      animate={{ opacity: receded ? 0.62 : 1, scale: receded ? 0.95 : 1 }}
       whileTap={reduced ? undefined : { scale: 0.97 }}
       transition={reduced ? INSTANT : { layout: SPRING, opacity: FADE, scale: SPRING }}
       style={{ pointerEvents: receded ? 'none' : undefined }}
