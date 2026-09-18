@@ -68,8 +68,8 @@ MediaPipe pipeline runs headless. Measured on 2026-09-18:
 
 | Clip | Result |
 |---|---|
-| smile.y4m | calibrated, smile peaked at 0.90, NORMAL to EXPERT 2.7 s after start, no other transition |
-| approach-then-smile.y4m | proximity rose to 1.51 when the face came closer, no false SIMPLIFY (brow 0.07 max), EXPERT on the smile |
+| smile.y4m | calibrated, smile peaked at 0.90, single transition NORMAL to EXPERT 930 ms after the smile crossed 0.45; proximity stayed at or below 1.09 during the smile (was 1.10 with the forehead-to-chin metric) |
+| approach-then-smile.y4m | proximity rose to 1.36 on the 1.4x approach and 1.46 at most, no false SIMPLIFY (brow 0.07 max), EXPERT on the smile |
 | left / right / startle | mode stayed NORMAL |
 
 ```bash
