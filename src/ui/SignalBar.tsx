@@ -104,7 +104,11 @@ function Toast({ state, face, onBack, reduced }: ToastProps) {
 
   const calibrated = face.calibrated
   useEffect(() => {
-    if (!calibrated) return
+    if (!calibrated) {
+      // R cleared the baseline: the "calibrated" notice must not linger
+      setItem((cur) => (cur?.key === 'cal' ? null : cur))
+      return
+    }
     setItem({ key: 'cal', text: 'Distance calibrated. Lean in about 15% closer to trigger a lean; R redoes it.', back: false })
     const id = window.setTimeout(() => setItem((cur) => (cur?.key === 'cal' ? null : cur)), TOAST_MS)
     return () => window.clearTimeout(id)
@@ -117,9 +121,9 @@ function Toast({ state, face, onBack, reduced }: ToastProps) {
           key={item.key}
           className="toast"
           role="status"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, x: '-50%', y: 8 }}
+          animate={{ opacity: 1, x: '-50%', y: 0 }}
+          exit={{ opacity: 0, x: '-50%', y: 6 }}
           transition={reduced ? INSTANT : { duration: 0.22 }}
         >
           <span>{item.text}</span>

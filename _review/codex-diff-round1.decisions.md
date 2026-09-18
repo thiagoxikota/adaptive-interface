@@ -9,3 +9,10 @@ FINDINGS=5. Arbitration:
 5. Tests out of date with the new engine semantics. ALREADY DONE in the same edit session (42 tests pass); Codex read the tree mid-edit.
 
 Rejected: none.
+
+# Codex diff review, round 2 (base 33c670d -> working tree)
+
+FINDINGS=3, all ACCEPTED:
+1. Toast: Motion's inline transform overrode translateX(-50%). Horizontal centering moved into Motion's x.
+2. Signal bar could not wrap and clipped the Back to Normal button on narrow widths. flex-wrap added.
+3. Calibration toast lingered after R cleared the baseline. Cleared when calibrated turns false.

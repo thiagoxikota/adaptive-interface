@@ -979,8 +979,9 @@
 
 .signalbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2) var(--space-4);
   min-height: 44px;
   padding: 6px var(--space-6);
   background: var(--color-card);
@@ -1121,7 +1122,7 @@
   position: fixed;
   left: 50%;
   bottom: 64px;
-  transform: translateX(-50%);
+  /* horizontal centering lives in Motion's x so the y animation cannot override it */
   z-index: 30;
   display: flex;
   align-items: center;
