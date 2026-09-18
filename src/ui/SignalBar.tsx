@@ -76,7 +76,7 @@ interface ToastProps {
 }
 
 function transitionText(t: NonNullable<EngineState['lastTransition']>, focusTarget: string | null): string {
-  if (t.reason.startsWith('keyboard')) return `Key ${MODE_LABEL[t.to]}`
+  if (t.reason.startsWith('keyboard')) return `${MODE_LABEL[t.to]} by keyboard`
   if (t.to === 'FOCUS') return `Focus on ${focusTarget ?? 'component'}: you leaned in with the pointer resting there`
   if (t.to === 'EXPERT') return 'Expert: smile held for a second'
   if (t.to === 'SIMPLIFY') return 'Simplify: brow and lean held for a second'
@@ -156,7 +156,7 @@ export const SignalBar = memo(function SignalBar({ model, reduced }: SignalBarPr
 
   return (
     <>
-      <div className="signalbar" aria-live="polite">
+      <div className="signalbar">
         <span className="signal-status" data-status={face.status}>
           <i className="dot" aria-hidden="true" />
           {cameraStatus(face)}
