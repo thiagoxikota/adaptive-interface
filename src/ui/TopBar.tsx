@@ -1,0 +1,93 @@
+import { memo } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import type { CameraStatus, Mode, TransitionSource } from '../engine/types'
+import { INSTANT, FADE, exitTransition } from './motion'
+
+interface TopBarProps {
+  status: CameraStatus
+  error?: string
+  mode: Mode
+  source: TransitionSource
+  showNav: boolean
+  reduced: boolean
+  onStartCamera: () => void
+}
+
+const NAV = ['Overview', 'Routes', 'Fleet', 'Drivers', 'Reports'] as const
+
+const CAMERA_LABEL: Record<CameraStatus, string> = {
+  idle: 'Camera off',
+  loading: 'Loading model',
+  running: 'Camera on',
+  'no-camera': 'No camera (keyboard fallback)',
+  error: 'Error',
+}
+
+const MODE_LABEL: Record<Mode, string> = {
+  NORMAL: 'Normal',
+  SIMPLIFY: 'Simplify',
+  FOCUS: 'Focus',
+  EXPERT: 'Expert',
+}
+
+const SOURCE_LABEL: Record<TransitionSource, string> = {
+  init: 'default',
+  camera: 'camera',
+  keyboard: 'keyboard',
+}
+
+export const TopBar = memo(function TopBar({
+  status,
+  error,
+  mode,
+  source,
+  showNav,
+  reduced,
+  onStartCamera,
+}: TopBarProps) {
+  const canStart = status === 'idle' || status === 'no-camera' || status === 'error'
+  return (
+    <header className="topbar">
+      <div className="brand">Northbound Ops</div>
+      <AnimatePresence initial={false} mode="popLayout">
+        {showNav && (
+          <motion.nav
+            key="nav"
+            className="nav"
+            aria-label="Sections"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6, transition: exitTransition(reduced) }}
+            transition={reduced ? INSTANT : FADE}
+          >
+            {NAV.map((item, i) => (
+              <button
+                key={item}
+                type="button"
+                className="nav-item"
+                aria-current={i === 0 ? 'page' : undefined}
+              >
+                {item}
+              </button>
+            ))}
+          </motion.nav>
+        )}
+      </AnimatePresence>
+      <div className="topbar-right">
+        <span className="pill pill-camera" data-status={status} title={error}>
+          <i className="dot" aria-hidden="true" />
+          {CAMERA_LABEL[status]}
+        </span>
+        {canStart && (
+          <button type="button" className="btn btn-secondary" onClick={onStartCamera}>
+            Start camera
+          </button>
+        )}
+        <span className="pill pill-mode" data-mode={mode} aria-live="polite">
+          <strong>{MODE_LABEL[mode]}</strong>
+          <span className="pill-source">{SOURCE_LABEL[source]}</span>
+        </span>
+      </div>
+    </header>
+  )
+})
