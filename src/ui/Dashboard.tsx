@@ -88,7 +88,9 @@ const Stage = memo(function Stage({ layout, reduced }: { layout: Layout; reduced
 
       <motion.section layout className="grid" aria-label="Operations">
         <AnimatePresence initial={false} mode="popLayout">
-          <KpiRow key="kpis" count={layout.kpis} focus={focus} reduced={reduced} index={0} />
+          {layout.kpis !== 0 && (
+            <KpiRow key="kpis" count={layout.kpis} focus={focus} reduced={reduced} index={0} />
+          )}
           <ChartCard
             key="chart"
             variant={layout.chart}

@@ -25,7 +25,7 @@ export interface Layout {
   secondaryNav: boolean
   activity: boolean
   fleet: boolean
-  kpis: 1 | 4 | 8
+  kpis: 0 | 1 | 4 | 8
   chart: 'standard' | 'dense' | 'explain'
   primary: 'toolbar' | 'stage'
   shortcuts: boolean
@@ -56,7 +56,7 @@ const SIMPLIFY: Layout = {
   secondaryNav: false,
   activity: false,
   fleet: false,
-  kpis: 1,
+  kpis: 0,
   chart: 'explain',
   primary: 'stage',
   shortcuts: false,

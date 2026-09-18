@@ -251,6 +251,18 @@
   gap: var(--gap);
 }
 
+/* SIMPLIFY: the whole stage fits the viewport and sits at its vertical centre,
+ * so the primary action lands mid-screen instead of below the fold. */
+
+.app[data-density='airy'] .main-inner {
+  min-height: calc(100svh - 56px - 44px - 2 * var(--space-6));
+  justify-content: center;
+}
+
+.app[data-density='airy'] .stage {
+  padding: 0 0 var(--space-4);
+}
+
 /* page header */
 
 .page-header {
