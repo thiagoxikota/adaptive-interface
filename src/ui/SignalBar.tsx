@@ -19,6 +19,16 @@ const MODE_LABEL: Record<Mode, string> = {
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v)
 
+/** data-focus-id -> words for the projector */
+const TARGET_LABEL: Record<string, string> = {
+  chart: 'the chart',
+  kpis: 'the key numbers',
+  activity: 'the activity feed',
+  fleet: 'the fleet panel',
+  'primary-action': 'the dispatch button',
+}
+const targetLabel = (id: string | null): string => (id === null ? 'a component' : (TARGET_LABEL[id] ?? id))
+
 interface GestureChipProps {
   label: string
   target: Mode
@@ -77,7 +87,7 @@ interface ToastProps {
 
 function transitionText(t: NonNullable<EngineState['lastTransition']>, focusTarget: string | null): string {
   if (t.reason.startsWith('keyboard')) return `${MODE_LABEL[t.to]} by keyboard`
-  if (t.to === 'FOCUS') return `Focus on ${focusTarget ?? 'component'}: you leaned in with the pointer resting there`
+  if (t.to === 'FOCUS') return `Focus on ${targetLabel(focusTarget)}: you leaned in with the pointer resting there`
   if (t.to === 'EXPERT') return 'Expert: smile held for a second'
   if (t.to === 'SIMPLIFY') return 'Simplify: brow and lean held for a second'
   if (t.reason.startsWith('face absent')) return 'Normal: no face in view'
@@ -157,22 +167,28 @@ export const SignalBar = memo(function SignalBar({ model, reduced }: SignalBarPr
   const dwell = mouse.dwellTarget !== null && mouse.dwellMs >= t.dwellMs
   const cooling = state.cooldownMs > 0
   const running = face.status === 'running'
+  const canStart = face.status === 'idle' || face.status === 'no-camera' || face.status === 'error'
 
   return (
     <>
       <div className="signalbar">
-        <span className="signal-status" data-status={face.status}>
+        <span className="signal-status" data-status={face.status} title={face.error}>
           <i className="dot" aria-hidden="true" />
           {cameraStatus(face)}
           {running && cooling && <span className="signal-cool"> · settling {(state.cooldownMs / 1000).toFixed(1)} s</span>}
         </span>
+        {canStart && (
+          <button type="button" className="btn btn-secondary" onClick={model.startCamera}>
+            Start camera
+          </button>
+        )}
         <div className="gchips">
           <GestureChip
             label="Brow + lean in"
             target="SIMPLIFY"
             level={Math.min(brow, lean)}
             progress={state.progress.simplify}
-            value={running ? `${face.brow.toFixed(2)} · ${face.proximity.toFixed(2)}` : ''}
+            value={running ? `${face.brow.toFixed(2)} ${face.proximity.toFixed(2)}` : ''}
             active={state.mode === 'SIMPLIFY'}
           />
           <GestureChip
@@ -180,7 +196,7 @@ export const SignalBar = memo(function SignalBar({ model, reduced }: SignalBarPr
             target="FOCUS"
             level={Math.min(lean, dwell ? 1 : 0)}
             progress={state.progress.focus}
-            value={running ? `${face.proximity.toFixed(2)} · ${mouse.dwellTarget ?? 'no target'}` : ''}
+            value={running ? face.proximity.toFixed(2) : ''}
             active={state.mode === 'FOCUS'}
           />
           <GestureChip
@@ -192,11 +208,16 @@ export const SignalBar = memo(function SignalBar({ model, reduced }: SignalBarPr
             active={state.mode === 'EXPERT'}
           />
         </div>
-        {state.mode !== 'NORMAL' && (
-          <button type="button" className="btn btn-secondary signal-back" onClick={() => model.setMode('NORMAL')}>
-            Back to Normal <kbd>1</kbd>
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn btn-secondary signal-back"
+          style={{ visibility: state.mode === 'NORMAL' ? 'hidden' : 'visible' }}
+          aria-hidden={state.mode === 'NORMAL'}
+          tabIndex={state.mode === 'NORMAL' ? -1 : 0}
+          onClick={() => model.setMode('NORMAL')}
+        >
+          Back to Normal <kbd>1</kbd>
+        </button>
       </div>
       <Toast state={state} face={face} onBack={() => model.setMode('NORMAL')} reduced={reduced} />
     </>

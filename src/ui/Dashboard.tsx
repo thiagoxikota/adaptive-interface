@@ -106,10 +106,8 @@ const Stage = memo(function Stage({ layout, reduced }: { layout: Layout; reduced
               layout
               className="stage"
               data-focused={focus === 'primary-action' ? '' : undefined}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, transition: exitTransition(reduced) }}
-              transition={reduced ? INSTANT : { layout: SPRING, opacity: FADE, y: SPRING }}
+              transition={reduced ? INSTANT : { layout: SPRING, opacity: FADE }}
             >
               <PrimaryAction size="lg" focus={focus} reduced={reduced} />
             </motion.div>
@@ -131,7 +129,7 @@ const Stage = memo(function Stage({ layout, reduced }: { layout: Layout; reduced
 export function Dashboard({ model, insight }: DashboardProps) {
   const prefersReduced = useReducedMotion()
   const reduced = prefersReduced === true
-  const { state, face } = model
+  const { state } = model
   const layout = useMemo(
     () => deriveLayout(state.mode, state.focusTarget),
     [state.mode, state.focusTarget],
@@ -147,15 +145,7 @@ export function Dashboard({ model, insight }: DashboardProps) {
         data-debug={model.debug ? '' : undefined}
       >
         <LayoutGroup>
-          <TopBar
-            status={face.status}
-            error={face.error}
-            mode={state.mode}
-            source={state.source}
-            showNav={layout.secondaryNav}
-            reduced={reduced}
-            onStartCamera={model.startCamera}
-          />
+          <TopBar mode={state.mode} source={state.source} showNav={layout.secondaryNav} reduced={reduced} />
           <SignalBar model={model} reduced={reduced} />
           <div className="frame">
             <AnimatePresence initial={false} mode="popLayout">

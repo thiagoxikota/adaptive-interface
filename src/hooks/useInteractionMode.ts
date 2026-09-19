@@ -19,20 +19,20 @@ function initialDebug(): boolean {
 }
 
 /**
- * The part of EngineState worth a React render. Progress is bucketed to 0.05
- * and cooldown to 100 ms so the tree re-renders a few times per second at
+ * The part of EngineState worth a React render. Progress is bucketed to 0.1
+ * and cooldown to 250 ms so the tree re-renders a few times per second at
  * most, never at 60 Hz.
  */
 function visibleKey(s: EngineState): string {
   const p = s.progress
-  const bucket = (v: number): number => Math.round(v / 0.05)
+  const bucket = (v: number): number => Math.round(v / 0.1)
   return [
     s.mode,
     s.focusTarget ?? '',
     s.since,
     s.source,
     s.keyboardHold ? 1 : 0,
-    Math.round(s.cooldownMs / 100),
+    Math.round(s.cooldownMs / 250),
     bucket(p.simplify),
     bucket(p.focus),
     bucket(p.expert),
@@ -61,6 +61,8 @@ export function useInteractionMode(): InteractionModel {
   const camera = useFaceSignals()
   const mouse = useMouseSignals()
 
+  const { recalibrate, start: startCamera, getFace } = camera
+
   // one engine per mount, never recreated
   const [engine] = useState(() => new InteractionHeuristicEngine())
 
@@ -68,11 +70,6 @@ export function useInteractionMode(): InteractionModel {
   const [debug, setDebug] = useState<boolean>(initialDebug)
   const [, setDebugTick] = useState(0)
 
-  // Latest face snapshot for the tick, without re-subscribing rAF per render.
-  const faceRef = useRef(camera.face)
-  useEffect(() => {
-    faceRef.current = camera.face
-  }, [camera.face])
   const keyRef = useRef(visibleKey(engine.state))
 
   const publish = useCallback((next: EngineState): void => {
@@ -92,15 +89,14 @@ export function useInteractionMode(): InteractionModel {
       const now = performance.now()
       if (now - last >= TICK_MS) {
         last = now
-        publish(engine.update({ face: faceRef.current, mouse, now }))
+        // live tracker value: the engine never waits for a React render
+        publish(engine.update({ face: getFace(), mouse, now }))
       }
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [engine, mouse, publish])
-
-  const { recalibrate, start: startCamera } = camera
+  }, [engine, mouse, publish, getFace])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -146,6 +142,7 @@ export function useInteractionMode(): InteractionModel {
   return {
     state,
     face: camera.face,
+    getFace,
     mouse,
     thresholds: engine.thresholds,
     debug,

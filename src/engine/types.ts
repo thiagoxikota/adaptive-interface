@@ -173,7 +173,10 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
 /** What the UI receives from the composing hook. */
 export interface InteractionModel {
   state: EngineState
+  /** React snapshot, refreshed at most 10 times per second */
   face: FaceSignals
+  /** live tracker value for per-frame readers (no render) */
+  getFace: () => FaceSignals
   mouse: MouseSignals
   thresholds: Thresholds
   debug: boolean

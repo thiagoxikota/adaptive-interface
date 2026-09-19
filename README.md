@@ -15,8 +15,11 @@ after a mode has already changed, and the layout never waits for it.
 
 ```bash
 npm install
-npm run dev            # http://localhost:5173  (add ?debug=1 to open with the debug panel)
+npm run build && npm run preview   # stage: production build, http://localhost:4173
+npm run dev                        # development, http://localhost:5173
 ```
+
+Add `?debug=1` to open with the debug panel.
 
 The camera starts on load; the top bar has a Start camera button for
 browsers that need a gesture. Allow the camera when asked.
@@ -25,10 +28,10 @@ browsers that need a gesture. Allow the camera when asked.
 
 | Key | Effect |
 |---|---|
-| 1 / 2 / 3 / 4 | NORMAL / SIMPLIFY / FOCUS / EXPERT (keyboard hold of 6 s, then the camera drives again) |
+| 1 / 2 / 3 / 4 | NORMAL / SIMPLIFY / FOCUS / EXPERT. A key press starts a 2 s cooldown; an expression already on the face at that moment is spent and must be redone before the camera can move the mode |
 | D | Debug panel with raw and smoothed camera values, thresholds and gesture ramps |
 | R | Recalibrate the distance baseline |
-| 0 or Esc | Release the keyboard hold |
+| 0 or Esc | End any cooldown at once |
 
 ## Gestures (demo mappings, not claims about internal state)
 
@@ -37,24 +40,43 @@ browsers that need a gesture. Allow the camera when asked.
 | Sustained brow activity + leaning forward (face larger than baseline) | SIMPLIFY |
 | Face closer + pointer dwelling on a component | FOCUS that component |
 | Sustained smile | EXPERT |
-| Leaning back for 1.5 s, or face absent for 3 s | NORMAL |
+| Leaning back for 1.5 s with the head toward the screen, or face absent for 10 s | NORMAL |
 
 Every gesture must hold for 0.7 to 0.9 s, every threshold has a lower
 release threshold (hysteresis), and a 1.5 s cooldown follows any change.
-A single frame can never switch modes. Thresholds live in
-`src/engine/types.ts` (`DEFAULT_THRESHOLDS`).
+A single frame can never switch modes, and a face snapshot older than
+0.5 s (camera stalled) feeds nothing. Leaning in means the face reads 15%
+larger than the calibrated baseline (`leanOn` 1.15, release at 1.08).
+Thresholds live in `src/engine/types.ts` (`DEFAULT_THRESHOLDS`).
+
+## Feedback on screen
+
+- Signal bar under the top bar: camera status in words (loading, calibrating,
+  watching, no camera), one chip per gesture with its target mode and live
+  value. The thin line at the bottom of a chip is the signal against its
+  threshold; the fill is how long the gesture has been held. The chip border
+  turns accent when the signal crosses the threshold.
+- Toast on every mode change saying why the layout changed, with a Back to
+  Normal button; the same button sits in the signal bar whenever the layout
+  is not the default. A toast also confirms the distance calibration.
+- Press D for the raw and smoothed values, thresholds, ramps and the last
+  transition reason.
 
 ## Layout
 
-- `src/signals/face/` MediaPipe tracker: presence, face height vs a
-  calibrated baseline (proximity), brow (browDownLeft/Right), smile
+- `src/signals/face/` MediaPipe tracker: presence, face size vs a calibrated
+  baseline (proximity; size = outer eye corners 33-263 plus forehead-top to
+  nose-tip 10-1, each divided by cos(yaw) / cos(pitch) so turning the head is
+  not read as leaning back), brow (browDownLeft/Right), smile
   (mouthSmileLeft/Right), yaw/pitch/roll, time-based EMA smoothing.
+  Calibration takes 1.5 s of steady, still presence (spread under 5%).
 - `src/signals/mouse/` pointer velocity, dwell target (`data-focus-id`), dwell time.
 - `src/engine/InteractionHeuristicEngine.ts` pure state machine with unit tests (`npm test`).
 - `src/hooks/useInteractionMode.ts` composes signals, engine, keyboard and debug flag.
 - `src/ui/` the dashboard, mode layouts (`layout.ts`), motion config, debug overlay.
-- `src/insight/` static copy per mode plus the async Claude line via a Vite
-  dev middleware (`POST /api/insight`). The key is read from the environment
+- `src/insight/` static copy per mode plus the async Claude line; the
+  middleware lives in `server/insight.ts` (`POST /api/insight`, registered on
+  both `vite dev` and `vite preview`). The key is read from the environment
   or the macOS Keychain on the server side only. Set `INSIGHT_DISABLED=1`
   to run without any Claude call.
 - `public/mediapipe/` vendored wasm and model, so the demo does not depend on
@@ -64,7 +86,9 @@ A single frame can never switch modes. Thresholds live in
 
 `tests/README.md` explains the Playwright harness. Chromium is launched with
 `--use-file-for-fake-video-capture` pointing at y4m clips, so the real
-MediaPipe pipeline runs headless. Measured on 2026-09-18:
+MediaPipe pipeline runs headless. The clips are not in git:
+`scripts/make-fixtures.sh` regenerates them from the source videos into
+`tests/fixtures/`. Measured on 2026-09-18:
 
 | Clip | Result |
 |---|---|

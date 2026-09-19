@@ -52,6 +52,8 @@ export function pickBlendshapes(categories: readonly Category[] | undefined): Bl
   return out
 }
 
+const DEG2RAD = Math.PI / 180
+
 /**
  * Face size in units of frame HEIGHT, built from two measures that do not
  * move when the mouth does: the distance between the outer eye corners
@@ -59,15 +61,25 @@ export function pickBlendshapes(categories: readonly Category[] | undefined): Bl
  * grows about 10% on a smile because the jaw drops, which read as "leaning
  * in"; these two do not. `aspect` is videoWidth / videoHeight; x is rescaled
  * by it so a rolled head measures the same as an upright one.
+ *
+ * Both terms foreshorten with head rotation: the eye span scales with
+ * cos(yaw) and the upper height with cos(pitch), so turning to the audience
+ * read as leaning back. Each term is divided by its cosine (floored at 0.6,
+ * i.e. about 53 degrees, beyond which the landmarks are unreliable anyway).
+ * cos is even, so the sign convention of the angles does not matter.
  */
-export function faceHeightFromLandmarks(landmarks: readonly NormalizedLandmark[], aspect: number): number {
+export function faceHeightFromLandmarks(
+  landmarks: readonly NormalizedLandmark[],
+  aspect: number,
+  angles: HeadAngles,
+): number {
   const top = landmarks[LANDMARK_FOREHEAD_TOP]
   const nose = landmarks[LANDMARK_NOSE_TIP]
   const eyeR = landmarks[LANDMARK_RIGHT_EYE_OUTER]
   const eyeL = landmarks[LANDMARK_LEFT_EYE_OUTER]
   if (!top || !nose || !eyeR || !eyeL) return 0
-  const upper = Math.hypot((top.x - nose.x) * aspect, top.y - nose.y)
-  const eyes = Math.hypot((eyeR.x - eyeL.x) * aspect, eyeR.y - eyeL.y)
+  const upper = Math.hypot((top.x - nose.x) * aspect, top.y - nose.y) / Math.max(0.6, Math.cos(angles.pitch * DEG2RAD))
+  const eyes = Math.hypot((eyeR.x - eyeL.x) * aspect, eyeR.y - eyeL.y) / Math.max(0.6, Math.cos(angles.yaw * DEG2RAD))
   return upper + eyes
 }
 
@@ -157,7 +169,7 @@ export function rawFromResult(result: FaceLandmarkerResult, aspect: number): Fac
   const angles = fromMatrix ?? anglesFromLandmarks(landmarks, aspect)
 
   return {
-    faceHeight: faceHeightFromLandmarks(landmarks, aspect),
+    faceHeight: faceHeightFromLandmarks(landmarks, aspect, angles),
     brow: (bs.browDownLeft + bs.browDownRight) / 2,
     smile: (bs.mouthSmileLeft + bs.mouthSmileRight) / 2,
     browInnerUp: bs.browInnerUp,

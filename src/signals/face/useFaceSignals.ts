@@ -1,7 +1,8 @@
 /**
  * React binding for FaceTracker. One tracker per mount; the tracker publishes
- * every processed camera frame, React is notified at most every ~33 ms
- * (trailing edge kept, so the last frame always lands).
+ * every processed camera frame; React is notified at most every 100 ms
+ * (trailing edge kept). Per-frame consumers (the engine tick) read the live
+ * value through getFace() instead of React state.
  */
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { FaceSignals } from '../../engine/types'
@@ -10,13 +11,15 @@ import { FaceTracker } from './FaceTracker'
 
 export interface FaceSignalsModel {
   face: FaceSignals
+  /** live tracker value, no React involved; for per-frame consumers */
+  getFace: () => FaceSignals
   start: () => void
   stop: () => void
   recalibrate: () => void
   videoElement: HTMLVideoElement | null
 }
 
-const PUBLISH_INTERVAL_MS = 33
+const PUBLISH_INTERVAL_MS = 100
 
 /** useSyncExternalStore-compatible store that coalesces frame updates. */
 class ThrottledFaceStore {
@@ -89,9 +92,10 @@ export function useFaceSignals(): FaceSignalsModel {
 
   const face = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot)
 
+  const getFace = useCallback(() => tracker.face, [tracker])
   const start = useCallback(() => tracker.start(), [tracker])
   const stop = useCallback(() => tracker.stop(), [tracker])
   const recalibrate = useCallback(() => tracker.recalibrate(), [tracker])
 
-  return { face, start, stop, recalibrate, videoElement: tracker.videoElement }
+  return { face, getFace, start, stop, recalibrate, videoElement: tracker.videoElement }
 }

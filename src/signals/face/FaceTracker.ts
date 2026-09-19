@@ -37,6 +37,8 @@ export interface FaceTrackerOptions {
   calibrationPresenceMin: number
   calibrationMs: number
   calibrationMinSamples: number
+  /** max(samples)/min(samples) allowed inside the window; a wider spread means the user is still moving */
+  calibrationSpreadMax: number
   driftTauMs: number
   driftBandLow: number
   driftBandHigh: number
@@ -59,6 +61,7 @@ export const DEFAULT_FACE_TRACKER_OPTIONS: FaceTrackerOptions = {
   calibrationPresenceMin: 0.8,
   calibrationMs: 1500,
   calibrationMinSamples: 12,
+  calibrationSpreadMax: 1.05,
   driftTauMs: 30_000,
   driftBandLow: 0.94,
   driftBandHigh: 1.06,
@@ -186,25 +189,12 @@ export class FaceTracker {
     this.active = false
     this.wantLandmarker = false
     this.stopLoop()
-    if (this.stream) {
-      stopStream(this.stream)
-      this.stream = null
-    }
+    this.releaseStream()
     if (this.video) {
-      this.video.srcObject = null
       this.video.remove()
       this.video = null
     }
-    const lm = this.landmarker
-    this.landmarker = null
-    if (lm) {
-      try {
-        lm.close()
-      } catch {
-        /* already closed */
-      }
-    }
-    // an in-flight load is closed when it resolves (see ensureLandmarker)
+    this.closeLandmarker()
     this.resetSmoothing()
     this.publish({
       ...this.snapshot,
@@ -217,7 +207,7 @@ export class FaceTracker {
     })
   }
 
-  /** Clears the distance baseline; a new 1.5 s window starts once a face is steadily present. */
+  /** Clears the distance baseline; a new window starts once a face is steadily present and still. */
   recalibrate(): void {
     this.baseline = null
     this.calibrating = false
@@ -245,7 +235,13 @@ export class FaceTracker {
         audio: false,
       })
     } catch (e) {
-      this.failCamera(gen, describeError(e))
+      const blocked = e instanceof DOMException && e.name === 'NotAllowedError'
+      this.failCamera(
+        gen,
+        blocked
+          ? 'Camera blocked for this site: click the camera icon in the address bar, allow it, then Start camera'
+          : describeError(e),
+      )
       return
     }
     if (gen !== this.gen) {
@@ -253,6 +249,8 @@ export class FaceTracker {
       return
     }
     this.stream = stream
+    // macOS or the browser can revoke the device mid-run; surface it as no-camera so Start camera can retry
+    for (const track of stream.getVideoTracks()) track.onended = () => this.failCamera(gen, 'Camera stopped')
     const video = this.video ?? this.createVideo()
     video.srcObject = stream
     // announce the element so a debug preview can attach before frames flow
@@ -262,10 +260,6 @@ export class FaceTracker {
     } catch (e) {
       // autoplay policy blocked playback: surface it as a recoverable state so
       // the Start camera button (a user gesture) can call start() again
-      if (gen !== this.gen) return
-      stopStream(stream)
-      this.stream = null
-      video.srcObject = null
       this.failCamera(gen, `Video playback blocked (${describeError(e)}); press Start camera`)
       return
     }
@@ -277,6 +271,7 @@ export class FaceTracker {
     if (gen !== this.gen) return
     this.active = false
     this.stopLoop()
+    this.releaseStream()
     this.publish({ ...EMPTY_FACE, status: 'no-camera', error: message, baselineFaceHeight: this.baseline, calibrated: this.baseline !== null })
   }
 
@@ -301,6 +296,27 @@ export class FaceTracker {
     if (this.options.attachVideo) document.body.appendChild(v)
     this.video = v
     return v
+  }
+
+  private releaseStream(): void {
+    if (this.stream) {
+      stopStream(this.stream)
+      this.stream = null
+    }
+    if (this.video) this.video.srcObject = null
+  }
+
+  /** Closes the current landmarker; an in-flight load is closed when it resolves (see ensureLandmarker). */
+  private closeLandmarker(): void {
+    const lm = this.landmarker
+    this.landmarker = null
+    if (lm) {
+      try {
+        lm.close()
+      } catch {
+        /* already closed */
+      }
+    }
   }
 
   // ----------------------------------------------------------------- model
@@ -345,19 +361,19 @@ export class FaceTracker {
     }
   }
 
-  private failModel(message: string): void {
+  /**
+   * Model failure. The dead landmarker is closed so Start camera builds a fresh
+   * one; a detect failure on GPU also flips the delegate so the rebuild is on CPU.
+   */
+  private failModel(message: string, fromDetect = false): void {
     // a getUserMedia still pending must not adopt its stream into a dead tracker
     this.gen++
     this.active = false
     this.wantLandmarker = false
     this.stopLoop()
-    if (this.stream) {
-      stopStream(this.stream)
-      this.stream = null
-    }
-    if (this.video) {
-      this.video.srcObject = null
-    }
+    this.releaseStream()
+    this.closeLandmarker()
+    if (fromDetect && this.delegate === 'GPU') this.delegate = 'CPU'
     this.publish({ ...this.snapshot, status: 'error', error: message, present: false, presence: 0, fps: 0 })
   }
 
@@ -473,20 +489,14 @@ export class FaceTracker {
     if (this.delegate === 'GPU' && this.detectCount === 0 && this.landmarker) {
       // created fine on GPU but cannot run there: rebuild on CPU, keep the loop alive
       console.warn('[FaceTracker] GPU detect failed on first frame, rebuilding on CPU:', describeError(e))
-      const old = this.landmarker
-      this.landmarker = null
+      this.closeLandmarker()
       this.delegate = 'CPU'
-      try {
-        old.close()
-      } catch {
-        /* ignore */
-      }
       void this.ensureLandmarker()
       return
     }
     this.consecutiveErrors++
     if (this.consecutiveErrors >= this.options.maxConsecutiveErrors) {
-      this.failModel(`Face detection failed: ${describeError(e)}`)
+      this.failModel(`Face detection failed: ${describeError(e)}`, true)
     }
   }
 
@@ -540,12 +550,20 @@ export class FaceTracker {
           this.calibrationStart = now
           this.calibrationSamples = []
         }
-        this.calibrationSamples.push(faceHeight)
-        if (now - this.calibrationStart >= o.calibrationMs && this.calibrationSamples.length >= o.calibrationMinSamples) {
-          this.baseline = median(this.calibrationSamples)
-          this.calibrating = false
-          this.calibrationSamples = []
-          this.lastDriftTs = now
+        const samples = this.calibrationSamples
+        samples.push(faceHeight)
+        if (now - this.calibrationStart >= o.calibrationMs && samples.length >= o.calibrationMinSamples) {
+          if (Math.max(...samples) / Math.min(...samples) <= o.calibrationSpreadMax) {
+            this.baseline = median(samples)
+            this.calibrating = false
+            this.calibrationSamples = []
+            this.lastDriftTs = now
+          } else {
+            // still settling (e.g. sitting back after clicking Allow): drop the
+            // oldest half and keep collecting; the window start moves with it
+            this.calibrationSamples = samples.slice(samples.length >> 1)
+            this.calibrationStart = (this.calibrationStart + now) / 2
+          }
         }
       } else if (this.calibrating && presence < o.calibrationPresenceMin) {
         // face lost mid-window: start a fresh window when it is back

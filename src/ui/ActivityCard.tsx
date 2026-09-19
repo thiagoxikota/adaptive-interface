@@ -27,11 +27,12 @@ export const ActivityCard = memo(function ActivityCard({
       <motion.div layout="position" className="card-head">
         <h2 className="card-title">Recent activity</h2>
       </motion.div>
-      <motion.ol layout className="activity" data-dense={dense ? '' : undefined}>
+      <motion.ol layout="position" className="activity" data-dense={dense ? '' : undefined}>
         <AnimatePresence initial={false}>
           {items.map((item) => (
             <motion.li
               key={item.id}
+              layout="position"
               className="activity-item"
               data-tone={item.tone ?? 'plain'}
               initial={{ opacity: 0 }}

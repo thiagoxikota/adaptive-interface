@@ -5,8 +5,8 @@ import { EMPTY_MOUSE, type MouseSignals } from '../../engine/types'
 const VELOCITY_TAU_MS = 120
 /** dwell / idle bookkeeping rate; also re-hit-tests the resting pointer */
 const TICK_MS = 50
-/** ms of pointer stillness after which dwell stops counting */
-const DWELL_IDLE_CAP_MS = 8000
+/** document.elementFromPoint forces layout; hit-test no more often than this */
+const HIT_TEST_MS = 200
 
 const FOCUS_SELECTOR = '[data-focus-id]'
 
@@ -75,16 +75,17 @@ export function useMouseSignals(): MouseSignals {
       if (document.visibilityState !== 'visible') leave()
     }
 
+    let lastHitTest = 0
     const tick = (): void => {
       const now = performance.now()
       const elapsed = now - lastTickAt
       lastTickAt = now
       m.idleMs = now - lastMoveAt
       if (m.idleMs >= elapsed) m.velocity *= Math.exp(-elapsed / VELOCITY_TAU_MS)
-      // A forgotten mouse is not a deliberate rest: after DWELL_IDLE_CAP_MS
-      // without movement the dwell target is dropped until the pointer moves.
-      if (inside && m.idleMs < DWELL_IDLE_CAP_MS) setTarget(focusIdAt(document.elementFromPoint(m.x, m.y)), now)
-      else if (m.idleMs >= DWELL_IDLE_CAP_MS) setTarget(null, now)
+      if (inside && now - lastHitTest >= HIT_TEST_MS) {
+        lastHitTest = now
+        setTarget(focusIdAt(document.elementFromPoint(m.x, m.y)), now)
+      }
       m.dwellMs = m.dwellTarget === null ? 0 : now - dwellStart
     }
 

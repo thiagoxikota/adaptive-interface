@@ -266,7 +266,7 @@ async function runSampling(page) {
     }
     if (s.mode !== lastMode) {
       modeTimeline.push({ t, mode: s.mode })
-      const label = samples.length === 1 ? String(s.mode) : String(s.mode)
+      const label = String(s.mode)
       const file = await shoot(label)
       console.log(`[shot] t=${t}ms mode=${s.mode} -> ${path.relative(process.cwd(), file)}`)
       lastMode = s.mode

@@ -22,10 +22,12 @@ import {
  * Largest step of wall time one update() may credit to an accumulator.
  * When a tab is hidden, requestAnimationFrame stops and the next update can
  * arrive seconds later; without this cap that one frame could fire a transition.
+ * 300 ms keeps a slow tick (CPU delegate, loaded machine) honest without
+ * stretching every sustain, and still cannot reach any 700+ ms threshold alone.
  */
-const MAX_DT_MS = 100
+const MAX_DT_MS = 300
 
-/** ms the cursor must rest on another component, or the lean be released, to leave FOCUS */
+/** ms the lean must stay released to leave a camera-driven FOCUS */
 const FOCUS_EXIT_MS = 1200
 
 /**
@@ -36,6 +38,13 @@ const STALE_FACE_MS = 500
 
 /** Rate at which an accumulator drains while its gesture is released. */
 const DECAY_FACTOR = 2
+
+/**
+ * Leaning back only counts with a roughly frontal head. A head turned toward
+ * the audience shrinks the face metric and would otherwise read as leaning back.
+ */
+const RELAX_YAW_MAX_DEG = 25
+const RELAX_PITCH_MAX_DEG = 20
 
 type Gesture = 'simplify' | 'focus' | 'expert' | 'relax'
 
@@ -90,12 +99,12 @@ export class InteractionHeuristicEngine {
   private readonly acc: Accumulators = { simplify: 0, focus: 0, expert: 0, relax: 0 }
   /**
    * Gestures are edge-triggered: once one reaches its threshold it is spent
-   * until the user physically releases it. Otherwise two gestures held at the
-   * same time (brow+lean and smile) would alternate modes every cooldown.
+   * until the user physically releases it (its own latches drop, not a masking
+   * signal such as a smile over a lean-back). Otherwise two gestures held at
+   * the same time (brow+lean and smile) would alternate modes every cooldown.
    */
   private readonly spent: Record<Gesture, boolean> = { simplify: false, focus: false, expert: false, relax: false }
   private absenceAcc = 0
-  private focusLeaveAcc = 0
   private focusLeanAcc = 0
 
   private readonly browLatch: Latch = { engaged: false }
@@ -140,6 +149,7 @@ export class InteractionHeuristicEngine {
     const lean = latch(this.leanLatch, face.proximity, t.leanOn, t.leanOff, leanOk)
     const smile = latch(this.smileLatch, face.smile, t.smileOn, t.smileOff, faceOk)
     const leanBack = latchBelow(this.leanBackLatch, face.proximity, t.leanBackOn, t.leanBackOff, leanOk)
+    const frontal = Math.abs(face.yaw) <= RELAX_YAW_MAX_DEG && Math.abs(face.pitch) <= RELAX_PITCH_MAX_DEG
 
     const dwelling = mouse.dwellTarget !== null && mouse.dwellMs >= t.dwellMs
 
@@ -147,13 +157,16 @@ export class InteractionHeuristicEngine {
     // Brow present means simplify owns the lean; focus waits.
     const focusActive = lean && dwelling && !brow
     const expertActive = smile
-    // A smile or a furrowed brow is an active signal; leaning back only relaxes when they stop.
-    const relaxActive = leanBack && !smile && !brow
+    // A smile or a furrowed brow is an active signal; leaning back only relaxes
+    // when they stop, and only while the head still faces the screen.
+    const relaxActive = leanBack && frontal && !smile && !brow
 
-    this.ramp('simplify', simplifyActive, dt, t.sustainSimplifyMs)
-    this.ramp('focus', focusActive, dt, t.sustainFocusMs)
-    this.ramp('expert', expertActive, dt, t.sustainExpertMs)
-    this.ramp('relax', relaxActive, dt, t.sustainRelaxMs)
+    // "released" is the gesture's own latches dropping; a mask (smile over a
+    // lean-back, brow over a lean) does not re-arm a spent gesture.
+    this.ramp('simplify', simplifyActive, !brow || !lean, dt, t.sustainSimplifyMs)
+    this.ramp('focus', focusActive, !lean || !dwelling, dt, t.sustainFocusMs)
+    this.ramp('expert', expertActive, !smile, dt, t.sustainExpertMs)
+    this.ramp('relax', relaxActive, !leanBack, dt, t.sustainRelaxMs)
 
     if (cameraRunning && face.presence < t.presenceMin) {
       this.absenceAcc = Math.min(t.absenceMs, this.absenceAcc + dt)
@@ -161,22 +174,20 @@ export class InteractionHeuristicEngine {
       this.absenceAcc = 0
     }
 
-    if (this.mode === 'FOCUS') {
-      // Only a move onto ANOTHER component counts as leaving; blank space or a
-      // parked pointer keeps the focus (the lean release is the other way out).
-      const movedElsewhere = mouse.dwellTarget !== null && mouse.dwellTarget !== this.focusTarget
-      this.focusLeaveAcc = movedElsewhere ? Math.min(FOCUS_EXIT_MS, this.focusLeaveAcc + dt) : 0
-      this.focusLeanAcc =
-        leanOk && face.proximity < t.leanOff ? Math.min(FOCUS_EXIT_MS, this.focusLeanAcc + dt) : 0
+    // Only a FOCUS the camera entered is left by releasing the lean. A keyboard
+    // FOCUS leaves via keys, relax, absence or a fresh camera gesture.
+    if (this.mode === 'FOCUS' && this.source === 'camera' && leanOk && face.proximity < t.leanOff) {
+      this.focusLeanAcc = Math.min(FOCUS_EXIT_MS, this.focusLeanAcc + dt)
     } else {
-      this.focusLeaveAcc = 0
       this.focusLeanAcc = 0
     }
 
     const canFire = now >= this.cooldownUntil
     const pick = this.pickTransition(input, simplifyActive)
     if (pick) {
-      if (pick.to === this.mode) {
+      // Resting on another card while in FOCUS retargets the focus: a real transition.
+      const retarget = pick.to === 'FOCUS' && pick.focusTarget !== this.focusTarget
+      if (pick.to === this.mode && !retarget) {
         // Same-mode gesture: consumed, nothing else happens (no cooldown reset).
         if (pick.gesture) {
           this.spent[pick.gesture] = true
@@ -230,9 +241,9 @@ export class InteractionHeuristicEngine {
     if (this.leanBackLatch.engaged) this.spent.relax = true
   }
 
-  private ramp(g: Gesture, active: boolean, dt: number, threshold: number): void {
+  private ramp(g: Gesture, active: boolean, released: boolean, dt: number, threshold: number): void {
+    if (released) this.spent[g] = false
     if (!active) {
-      this.spent[g] = false
       this.acc[g] = Math.max(0, this.acc[g] - DECAY_FACTOR * dt)
     } else if (this.spent[g]) {
       this.acc[g] = 0
@@ -248,29 +259,19 @@ export class InteractionHeuristicEngine {
     const { face, mouse } = input
     const t = this.t
 
-    // Absence and FOCUS exits are not gestures: they only ever lead to NORMAL.
+    // Absence and the FOCUS exit are not gestures: they only ever lead to NORMAL.
     if (this.absenceAcc >= t.absenceMs) {
       return this.mode === 'NORMAL'
         ? null
         : { gesture: null, to: 'NORMAL', focusTarget: null, reason: `face absent ${t.absenceMs}ms` }
     }
 
-    if (this.mode === 'FOCUS') {
-      if (this.focusLeaveAcc >= FOCUS_EXIT_MS) {
-        return {
-          gesture: null,
-          to: 'NORMAL',
-          focusTarget: null,
-          reason: `cursor left '${this.focusTarget}' for ${FOCUS_EXIT_MS}ms`,
-        }
-      }
-      if (this.focusLeanAcc >= FOCUS_EXIT_MS) {
-        return {
-          gesture: null,
-          to: 'NORMAL',
-          focusTarget: null,
-          reason: `lean released (${fmt(face.proximity)}) for ${FOCUS_EXIT_MS}ms`,
-        }
+    if (this.focusLeanAcc >= FOCUS_EXIT_MS) {
+      return {
+        gesture: null,
+        to: 'NORMAL',
+        focusTarget: null,
+        reason: `lean released (${fmt(face.proximity)}) for ${FOCUS_EXIT_MS}ms`,
       }
     }
 
@@ -343,7 +344,6 @@ export class InteractionHeuristicEngine {
     this.acc.expert = 0
     this.acc.relax = 0
     this.absenceAcc = 0
-    this.focusLeaveAcc = 0
     this.focusLeanAcc = 0
   }
 

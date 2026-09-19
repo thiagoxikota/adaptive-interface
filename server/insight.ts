@@ -1,23 +1,32 @@
-/// <reference types="node" />
 /**
- * Vite dev middleware: POST /api/insight -> one sentence of contextual copy
+ * Vite middleware: POST /api/insight -> one sentence of contextual copy
  * from Claude, requested by the client only AFTER a mode change was applied.
  *
- * Node-only code. It never touches the layout loop: the client debounces,
- * fires and forgets, and keeps its static copy on anything but a 200.
+ * Node-only code, kept out of the browser tsconfig project (tsconfig.node.json
+ * covers server/). Registered on both the dev server (npm run dev) and the
+ * preview server (npm run build && npm run preview), so the stage build has
+ * the same endpoint as development. It never touches the layout loop: the
+ * client debounces, fires and forgets, and keeps its static copy on anything
+ * but a 200.
  *
  * Secrets: the API key is resolved once at server start and lives only in the
  * Anthropic client. It is never logged, echoed, returned or written to disk.
  */
 import { execSync } from 'node:child_process'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import Anthropic from '@anthropic-ai/sdk'
-import type { Plugin } from 'vite'
-import { MODES, type Mode } from '../engine/types.ts'
+import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
+import { MODES, type Mode } from '../src/engine/types.ts'
 
 const ROUTE = '/api/insight'
 const MODEL = 'claude-opus-5'
 const TIMEOUT_MS = 8000
-const MAX_TOKENS = 300
+/**
+ * Shared with adaptive thinking on this model: thinking tokens count toward
+ * the budget, and a reply cut by max_tokens is dropped (a half sentence must
+ * not ship), so the budget is far above the 22 visible words asked for.
+ */
+const MAX_TOKENS = 1024
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_WORDS = 28
 
@@ -135,91 +144,99 @@ function describeError(err: unknown): string {
   return 'unknown error'
 }
 
+/** One handler for both servers. `client` null = INSIGHT_DISABLED or no key: every call answers 204. */
+function insightHandler(client: Anthropic | null) {
+  return (req: IncomingMessage, res: ServerResponse): void => {
+    if (req.method !== 'POST') {
+      res.statusCode = 405
+      res.setHeader('Allow', 'POST')
+      res.end()
+      return
+    }
+    if (client === null) {
+      res.statusCode = 204
+      res.end()
+      return
+    }
+
+    let raw = ''
+    let done = false
+    req.setEncoding('utf8')
+    req.on('data', (chunk: string) => {
+      if (done) return
+      raw += chunk
+      if (raw.length > MAX_BODY_BYTES) {
+        done = true
+        res.statusCode = 413
+        res.end()
+        req.destroy()
+      }
+    })
+    req.on('error', () => {
+      if (done) return
+      done = true
+      if (!res.destroyed) {
+        res.statusCode = 204
+        res.end()
+      }
+    })
+    req.on('end', () => {
+      if (done) return
+      done = true
+      const parsed = parseRequest(raw)
+      if (parsed === null) {
+        res.statusCode = 400
+        res.end()
+        return
+      }
+
+      // The client aborts its previous fetch on every mode change; cancel
+      // the matching upstream request instead of paying for a dead answer.
+      const controller = new AbortController()
+      res.on('close', () => {
+        if (!res.writableFinished) controller.abort()
+      })
+
+      generate(client, parsed, controller.signal)
+        .then((text) => {
+          if (res.destroyed) return
+          if (text === null) {
+            res.statusCode = 204
+            res.end()
+            return
+          }
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-store')
+          res.end(JSON.stringify({ text, source: 'claude' }))
+        })
+        .catch((err: unknown) => {
+          if (!controller.signal.aborted) console.warn(`[insight] ${describeError(err)}; static copy kept`)
+          if (res.destroyed) return
+          res.statusCode = 204
+          res.end()
+        })
+    })
+  }
+}
+
+function install(server: ViteDevServer | PreviewServer): void {
+  const apiKey = resolveApiKey()
+  const client = apiKey ? new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0 }) : null
+  server.config.logger.info(
+    client
+      ? `[insight] Claude copy enabled (${MODEL}, ${TIMEOUT_MS} ms timeout, no retries)`
+      : '[insight] no ANTHROPIC_API_KEY in env or Keychain: static copy only',
+  )
+  server.middlewares.use(ROUTE, insightHandler(client))
+}
+
+/** `apply: 'serve'` covers both `vite` and `vite preview` (preview resolves with command "serve"); `vite build` skips it. */
 export function insightServer(): Plugin {
   return {
     name: 'adaptive-interface:insight',
     apply: 'serve',
-    configureServer(server) {
-      const apiKey = resolveApiKey()
-      const client = apiKey ? new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0 }) : null
-      server.config.logger.info(
-        client
-          ? `[insight] Claude copy enabled (${MODEL}, ${TIMEOUT_MS} ms timeout, no retries)`
-          : '[insight] no ANTHROPIC_API_KEY in env or Keychain: static copy only',
-      )
-
-      server.middlewares.use(ROUTE, (req, res) => {
-        if (req.method !== 'POST') {
-          res.statusCode = 405
-          res.setHeader('Allow', 'POST')
-          res.end()
-          return
-        }
-        if (client === null) {
-          res.statusCode = 204
-          res.end()
-          return
-        }
-
-        let raw = ''
-        let done = false
-        req.setEncoding('utf8')
-        req.on('data', (chunk: string) => {
-          if (done) return
-          raw += chunk
-          if (raw.length > MAX_BODY_BYTES) {
-            done = true
-            res.statusCode = 413
-            res.end()
-            req.destroy()
-          }
-        })
-        req.on('error', () => {
-          if (done) return
-          done = true
-          if (!res.destroyed) {
-            res.statusCode = 204
-            res.end()
-          }
-        })
-        req.on('end', () => {
-          if (done) return
-          done = true
-          const parsed = parseRequest(raw)
-          if (parsed === null) {
-            res.statusCode = 400
-            res.end()
-            return
-          }
-
-          // The client aborts its previous fetch on every mode change; cancel
-          // the matching upstream request instead of paying for a dead answer.
-          const controller = new AbortController()
-          res.on('close', () => {
-            if (!res.writableFinished) controller.abort()
-          })
-
-          generate(client, parsed, controller.signal)
-            .then((text) => {
-              if (res.destroyed) return
-              if (text === null) {
-                res.statusCode = 204
-                res.end()
-                return
-              }
-              res.statusCode = 200
-              res.setHeader('Content-Type', 'application/json; charset=utf-8')
-              res.setHeader('Cache-Control', 'no-store')
-              res.end(JSON.stringify({ text, source: 'claude' }))
-            })
-            .catch((err: unknown) => {
-              if (!controller.signal.aborted) console.warn(`[insight] ${describeError(err)}; static copy kept`)
-              if (res.destroyed) return
-              res.statusCode = 204
-              res.end()
-            })
-        })
-      })
-    },
+    configureServer: install,
+    configurePreviewServer: install,
   }
 }

@@ -17,7 +17,7 @@ export const PageHeader = memo(function PageHeader({ insight, reduced }: PageHea
   return (
     <motion.header layout="position" className="page-header">
       <h1 className="thesis">The interface responds to how you interact.</h1>
-      <p className="caption">Face and pointer signals are read locally and never leave this machine.</p>
+      <p className="caption">Camera frames and pointer data stay on this machine. Only the mode name goes to Claude for the one-line note.</p>
       <div className="insight" aria-live="polite">
         <AnimatePresence initial={false} mode="wait">
           {current && (

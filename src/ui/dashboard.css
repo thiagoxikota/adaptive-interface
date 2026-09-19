@@ -16,10 +16,6 @@
   padding-bottom: 60px;
 }
 
-.app[data-debug] {
-  padding-right: 344px;
-}
-
 .app[data-density='dense'] {
   --gap: 12px;
   --pad: 14px;
@@ -103,25 +99,6 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-}
-
-.pill-camera .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-line-strong);
-}
-
-.pill-camera[data-status='running'] .dot {
-  background: var(--color-ok);
-}
-
-.pill-camera[data-status='loading'] .dot {
-  background: var(--color-warn);
-}
-
-.pill-camera[data-status='error'] .dot {
-  background: var(--color-accent);
 }
 
 .pill-mode {
@@ -255,7 +232,7 @@
  * so the primary action lands mid-screen instead of below the fold. */
 
 .app[data-density='airy'] .main-inner {
-  min-height: calc(100svh - 56px - 44px - 2 * var(--space-6));
+  min-height: calc(100svh - 56px - 44px - 60px - 2 * var(--space-6));
   justify-content: center;
 }
 
@@ -504,17 +481,23 @@
   grid-column: span 1;
 }
 
-/* FOCUS: the target takes the stage, the rest recedes (see Card.tsx) */
+/* FOCUS: the target takes the stage, the rest recedes by surface and scale, never by dimming (see Card.tsx) */
+
+.card[data-receded] {
+  background: var(--color-fill);
+  border-color: var(--color-line);
+}
+
+.primary[data-receded] {
+  background: var(--color-fill);
+  color: var(--color-ink-2);
+  border: var(--rule-strong);
+}
 
 .card[data-focused] {
   grid-column: 1 / -1;
-  order: -1;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-soft);
-}
-
-.stage[data-focused] {
-  order: -1;
 }
 
 .card-head {
@@ -577,11 +560,6 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-}
-
-.kpi + .kpi {
-  border-left: var(--rule);
-  padding-left: var(--gap);
 }
 
 .kpi-label {
@@ -1025,7 +1003,8 @@
 
 .gchips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   gap: 8px;
 }
 
@@ -1099,7 +1078,8 @@
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--color-ink-2);
-  min-width: 3ch;
+  width: 9ch;
+  text-align: right;
 }
 
 .signal-back {

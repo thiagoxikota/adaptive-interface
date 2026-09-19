@@ -83,5 +83,6 @@ export function useInsight(mode: Mode, focusTarget: string | null): InsightModel
     if (import.meta.env.DEV) window.__insight = insight
   }, [insight])
 
-  return { insight, pending: !fresh }
+  // One object per (insight, fresh) pair, so PageHeader's memo holds between renders.
+  return useMemo<InsightModel>(() => ({ insight, pending: !fresh }), [insight, fresh])
 }

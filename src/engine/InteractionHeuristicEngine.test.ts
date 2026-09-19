@@ -426,6 +426,25 @@ describe('InteractionHeuristicEngine: returning to NORMAL', () => {
     expect(r.state.lastTransition?.reason).toMatch(/leaned back 0\.85/)
   })
 
+  it('a lean-back already held when a key is pressed stays spent while a smile masks it', () => {
+    const sim = new Sim()
+    sim.run(300, face({ proximity: 0.85, smile: 0.61 }))
+    sim.engine.setManual('EXPERT', sim.now)
+    const masked = sim.run(3000, face({ proximity: 0.85, smile: 0.61 }))
+    expect(masked.state.mode).toBe('EXPERT')
+    const smileGone = sim.run(3000, face({ proximity: 0.85 }))
+    expect(smileGone.state.mode).toBe('EXPERT')
+    expect(smileGone.fired).toHaveLength(0)
+  })
+
+  it('a head turned to the audience never reads as leaning back', () => {
+    const sim = new Sim()
+    sim.smileIntoExpert()
+    const r = sim.run(4000, face({ proximity: 0.85, yaw: 40 }))
+    expect(r.state.mode).toBe('EXPERT')
+    expect(r.fired).toHaveLength(0)
+  })
+
   it('leaning back while still smiling does not relax (no EXPERT/NORMAL flapping)', () => {
     const sim = new Sim()
     sim.smileIntoExpert()
@@ -484,21 +503,28 @@ describe('InteractionHeuristicEngine: FOCUS exit', () => {
     expect(r.fired).toHaveLength(0)
   })
 
-  it('cursor rests on another component for 1200ms -> NORMAL', () => {
+  it('pointer resting on another component while leaning retargets the focus (no NORMAL flash)', () => {
     const sim = new Sim()
     intoFocus(sim)
-    const leftAt = sim.now
-    const r = sim.run(1600, LEAN, 'fleet-table')
-    expect(r.state.mode).toBe('NORMAL')
-    expectFiredAround(r.firedAt, leftAt + 1200)
-    expect(r.state.lastTransition?.reason).toMatch(/cursor left 'revenue-chart'/)
+    const r = sim.run(2200, LEAN, 'fleet-table')
+    expect(r.state.mode).toBe('FOCUS')
+    expect(r.state.focusTarget).toBe('fleet-table')
+    expect(r.fired.map((f) => f.to)).toEqual(['FOCUS'])
   })
 
-  it('cursor briefly leaves and comes back -> stays in FOCUS', () => {
+  it('pointer on blank space keeps FOCUS', () => {
     const sim = new Sim()
     intoFocus(sim)
-    sim.run(600, LEAN, null)
-    const r = sim.run(2000, LEAN, 'revenue-chart')
+    const r = sim.run(3000, LEAN, null)
+    expect(r.state.mode).toBe('FOCUS')
+    expect(r.fired).toHaveLength(0)
+  })
+
+  it('keyboard FOCUS is not undone by the camera after the cooldown', () => {
+    const sim = new Sim()
+    sim.run(200, NEUTRAL, 'kpi-grid')
+    sim.engine.setManual('FOCUS', sim.now)
+    const r = sim.run(T.keyboardHoldMs + 3000, NEUTRAL, 'chart')
     expect(r.state.mode).toBe('FOCUS')
     expect(r.fired).toHaveLength(0)
   })

@@ -53,7 +53,7 @@ No fake camera and no camera permission (Playwright auto-dismisses the prompt, s
 | `startle.y4m` | 8.0 s (193 frames) | Neutral face, brows raised | `browInnerUp` rises, `brow` (furrow) stays low: no SIMPLIFY. This is the false-positive check for the brow channel. |
 | `close-neutral.y4m` | 3.0 s (72 frames) | Face large in frame, neutral | Clip loops, so the face is always close: calibration captures the close size and `proximity` sits near 1.0. Use with `--keys` to test keyboard overrides while a face is present. |
 | `close-smile.y4m` | 8.0 s (193 frames) | Face large in frame, smiling | `smile` high; expected EXPERT. Because the clip is close from frame one, `proximity` stays near 1.0, so this is not a lean test. |
-| `approach.y4m` | 5.0 s (120 frames) | Face grows from far to close | `proximity` should ramp well above `leanOn` 1.12 after the baseline is captured on the far frames; with a brow furrow absent, no SIMPLIFY. Without pointer dwell, no FOCUS. Because the clip loops, proximity drops back at each restart. |
+| `approach.y4m` | 5.0 s (120 frames) | Face grows from far to close | `proximity` should ramp well above `leanOn` 1.15 after the baseline is captured on the far frames; with a brow furrow absent, no SIMPLIFY. Without pointer dwell, no FOCUS. Because the clip loops, proximity drops back at each restart. |
 | `approach-then-smile.y4m` | 9.0 s (216 frames) | Face grows closer, then smiles | `proximity` ramps, then `smile` climbs: expected NORMAL -> EXPERT once the smile is sustained. |
 
 None of the fixtures contains a sustained brow furrow at close range, so the SIMPLIFY gesture (brow activity + leaning forward) is exercised live at the demo and through the keyboard (`2`), not by these clips.
@@ -62,5 +62,18 @@ None of the fixtures contains a sustained brow furrow at close range, so the SIM
 
 - `runningAtMs` is when the landmarker came up; `calibrationMs` is when the distance baseline was ready. Both must be present before any camera-driven transition can appear.
 - `transitions[].reason` comes straight from `engine.lastTransition`; a run with a mode change and no transition entry means the mode moved without the engine recording it.
-- `stats.<signal>` gives the range each fixture actually produced. Use these to check the thresholds in `src/engine/types.ts` (`browOn` 0.35, `smileOn` 0.45, `leanOn` 1.12) against real values before tuning.
+- `stats.<signal>` gives the range each fixture actually produced. Use these to check the thresholds in `src/engine/types.ts` (`browOn` 0.35, `smileOn` 0.45, `leanOn` 1.15) against real values before tuning.
 - Console errors and page errors are collected for the whole run; a MediaPipe wasm or model 404 shows up here first.
+
+## Clocks and precision
+
+Samples are taken every 200 ms, so any latency read from the tables carries
+that precision. `runningAtMs` counts from the script start, sample `t` from
+the first sample, and `transitions[].at` is the page's `performance.now()`;
+compare a transition with the sample timeline by `t`, not by `at`.
+
+## Regenerating fixtures
+
+`tests/fixtures` is ignored by git. Run `scripts/make-fixtures.sh` (needs
+ffmpeg and the source clips in `~/xikota-os/_design/interactive-head/assets`)
+to rebuild every clip; about 560 MB of y4m.
