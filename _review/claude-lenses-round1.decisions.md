@@ -12,3 +12,8 @@ REJECTED:
 - U16 (drop the `reduced` prop, rely on MotionConfig only): 14-component refactor with no user-visible gain tonight.
 - S6 (remove InsightModel/pending): cosmetic, crosses file ownership of the parallel fixers.
 - E5: already fixed before the review finished (toBeCloseTo).
+
+## Outcome (commit aa9f016)
+
+The fix workflow died on the account session limit after partial edits; the rest was applied by hand and re-verified (45 unit tests, build, keyboard 5/5, approach-then-smile fixture: proximity 1.45 max, single EXPERT transition, 0 console errors; vite preview serves /api/insight with 200).
+Left for later: U13 (debug panel section order), U14 (dead single-KPI path), U15 (unused tokens), U16, S6.
