@@ -33,8 +33,3 @@ export function enterTransition(reduced: boolean, index = 0): Transition {
 export function exitTransition(reduced: boolean): Transition {
   return reduced ? INSTANT : EXIT
 }
-
-/** Transition for elements that only fade (no travel). */
-export function fadeTransition(reduced: boolean): Transition {
-  return reduced ? INSTANT : { layout: SPRING, opacity: FADE, default: FADE }
-}

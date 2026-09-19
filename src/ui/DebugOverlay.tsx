@@ -108,6 +108,16 @@ function CameraPreview() {
   )
 }
 
+/** Clock for the age fields (in mode for, frame age, last transition), ticking at 4 Hz so render stays pure. */
+function useNow(intervalMs = 250) {
+  const [now, setNow] = useState(() => performance.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(performance.now()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
+
 const THRESHOLD_KEYS: readonly (keyof Thresholds)[] = [
   'browOn',
   'browOff',
@@ -135,7 +145,7 @@ interface DebugOverlayProps {
 /** Fixed right panel with the real signal values. Toggled with D. */
 export function DebugOverlay({ model }: DebugOverlayProps) {
   const { face, mouse, state, thresholds: t } = model
-  const now = performance.now()
+  const now = useNow()
   const last = state.lastTransition
 
   return (
@@ -156,6 +166,32 @@ export function DebugOverlay({ model }: DebugOverlayProps) {
           v={`${face.baselineFaceHeight === null ? 'none' : f2(face.baselineFaceHeight)} · ${face.calibrated ? 'calibrated' : 'not calibrated'}`}
         />
         <KV k="frame age" v={face.ts > 0 ? ms(now - face.ts) : 'none'} />
+      </section>
+
+      <section className="dbg-section">
+        <h3>Engine</h3>
+        <KV k="mode" v={state.mode} />
+        <KV k="focusTarget" v={state.focusTarget ?? 'none'} />
+        <KV k="source" v={state.source} />
+        <KV k="in mode for" v={ms(now - state.since)} />
+        <KV k="keyboardHold" v={state.keyboardHold ? 'yes' : 'no'} />
+        <KV k="cooldownMs" v={ms(state.cooldownMs)} />
+        <KV
+          k="lastTransition"
+          v={last ? `${last.from} to ${last.to} · ${ms(now - last.at)} ago` : 'none'}
+        />
+        {last && <KV k="reason" v={last.reason} />}
+      </section>
+
+      <section className="dbg-section">
+        <h3>Gesture ramps</h3>
+        {(['simplify', 'focus', 'expert', 'relax'] as const).map((key) => (
+          <div key={key} className="dbg-ramp">
+            <span className="dbg-name">{key}</span>
+            <Bar value={state.progress[key]} accent />
+            <span className="dbg-smooth">{f0(state.progress[key] * 100)}%</span>
+          </div>
+        ))}
       </section>
 
       <section className="dbg-section">
@@ -249,38 +285,12 @@ export function DebugOverlay({ model }: DebugOverlayProps) {
       </section>
 
       <section className="dbg-section">
-        <h3>Gesture ramps</h3>
-        {(['simplify', 'focus', 'expert', 'relax'] as const).map((key) => (
-          <div key={key} className="dbg-ramp">
-            <span className="dbg-name">{key}</span>
-            <Bar value={state.progress[key]} accent />
-            <span className="dbg-smooth">{f0(state.progress[key] * 100)}%</span>
-          </div>
-        ))}
-      </section>
-
-      <section className="dbg-section">
         <h3>Pointer</h3>
         <KV k="dwellTarget" v={mouse.dwellTarget ?? 'none'} />
         <KV k="dwellMs" v={ms(mouse.dwellMs)} />
         <KV k="velocity" v={`${f0(mouse.velocity)} px/s`} />
         <KV k="idleMs" v={ms(mouse.idleMs)} />
         <KV k="x, y" v={`${f0(mouse.x)}, ${f0(mouse.y)}`} />
-      </section>
-
-      <section className="dbg-section">
-        <h3>Engine</h3>
-        <KV k="mode" v={state.mode} />
-        <KV k="focusTarget" v={state.focusTarget ?? 'none'} />
-        <KV k="source" v={state.source} />
-        <KV k="in mode for" v={ms(now - state.since)} />
-        <KV k="keyboardHold" v={state.keyboardHold ? 'yes' : 'no'} />
-        <KV k="cooldownMs" v={ms(state.cooldownMs)} />
-        <KV
-          k="lastTransition"
-          v={last ? `${last.from} to ${last.to} · ${ms(now - last.at)} ago` : 'none'}
-        />
-        {last && <KV k="reason" v={last.reason} />}
       </section>
 
       <section className="dbg-section">

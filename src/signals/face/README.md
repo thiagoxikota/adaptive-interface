@@ -19,7 +19,7 @@ Frame loop: `video.requestVideoFrameCallback` when present, `requestAnimationFra
 
 | field | source |
 |---|---|
-| `faceHeight` | distance between landmark 10 (forehead top) and 152 (chin), normalized coords with x scaled by `videoWidth / videoHeight`, so the value is in units of frame height |
+- Face size (`faceHeight`): distance between the outer eye corners (landmarks 33 and 263) plus forehead-top to nose-tip (landmarks 10 and 1), each divided by cos(yaw) / cos(pitch) (floored at 0.6) so a turned head is not read as a farther face. Forehead-to-chin was dropped because the jaw drops about 10% on a smile. Units: frame height, x scaled by videoWidth/videoHeight.
 | `brow` | mean of blendshapes `browDownLeft`, `browDownRight` |
 | `smile` | mean of `mouthSmileLeft`, `mouthSmileRight` |
 | `browInnerUp` | blendshape `browInnerUp` (debug only) |

@@ -1,6 +1,6 @@
 # Claude adversarial review, round 1 (2026-09-18): 5 lenses, arbitration
 
-Findings: engine E1-E7, face F1-F6, ui U1-U16, server S1-S8, wiring W1-W6 (workflow wf_9f48c5b5-6ce, journal has the full text).
+Findings (43): engine E1-E7, face F1-F6, ui U1-U16, server S1-S8, wiring W1-W6 (workflow wf_9f48c5b5-6ce, journal has the full text).
 
 ACCEPTED and dispatched to the fix workflow wf_7e93d6da-c5e:
 - engine: E1 keyboard FOCUS undone by camera exits; E2 retarget FOCUS instead of flashing NORMAL; E3 remove the 8 s dwell cap; E4 spent flag cleared only by latch release; E6 dt cap 300 ms; F1 (engine half) relax gated on a frontal head; W5 hit-test at 5 Hz.

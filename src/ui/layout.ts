@@ -25,7 +25,7 @@ export interface Layout {
   secondaryNav: boolean
   activity: boolean
   fleet: boolean
-  kpis: 0 | 1 | 4 | 8
+  kpis: 0 | 4 | 8
   chart: 'standard' | 'dense' | 'explain'
   primary: 'toolbar' | 'stage'
   shortcuts: boolean

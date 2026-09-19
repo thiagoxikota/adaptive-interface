@@ -4,5 +4,6 @@ import { insightServer } from './server/insight.ts'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: { chunkSizeWarningLimit: 700 },
   plugins: [react(), insightServer()],
 })

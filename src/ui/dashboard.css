@@ -551,10 +551,6 @@
   grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
-.kpi-grid[data-count='1'] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .kpi {
   display: flex;
   flex-direction: column;
@@ -600,17 +596,6 @@
 .kpi-note[data-tone='accent'] {
   color: var(--color-accent);
   font-weight: 600;
-}
-
-.kpi[data-big] {
-  align-items: center;
-  text-align: center;
-  padding: var(--space-2) 0;
-}
-
-.kpi[data-big] .kpi-label,
-.kpi[data-big] .kpi-note {
-  font-size: var(--fs);
 }
 
 /* chart */

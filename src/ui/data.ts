@@ -46,10 +46,6 @@ export const KPI_NORMAL: readonly Kpi[] = [
   { id: 'pending', label: 'Routes waiting for dispatch', value: String(PENDING_ROUTES), note: 'Oldest waiting 18 min', tone: 'accent' },
 ]
 
-export const KPI_ONE: readonly Kpi[] = [
-  { id: 'pending', label: 'Routes waiting for dispatch', value: String(PENDING_ROUTES), note: 'Oldest waiting 18 min', tone: 'accent' },
-]
-
 export const KPI_EXPERT: readonly Kpi[] = [
   { id: 'p95', label: 'p95 dispatch latency', value: '4.8', unit: 's', note: 'p50 1.9 s', tone: 'plain' },
   { id: 'ontime', label: 'On-time rate', value: '94.2', unit: '%', note: 'Target 95%', tone: 'plain' },

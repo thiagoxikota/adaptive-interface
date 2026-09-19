@@ -1,7 +1,9 @@
 {
   "name": "adaptive-interface",
+  "version": "1.0.0",
+  "description": "A dashboard that physically restructures in response to your face and pointer. Decisions are local; Claude writes the words after.",
+  "license": "MIT",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
