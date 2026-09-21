@@ -2,7 +2,7 @@
 
 Form: https://form.typeform.com/to/SygLMeAD ("Build Day Project Submissions", 18 questions, about 7 minutes). Paste each block as is. Every number below comes from `tests/out/*/summary.json` or `_review/`. Physical vocabulary only.
 
-Before pasting: the repository must be public (`gh repo edit thiagoxikota/adaptive-interface --visibility public`), and `docs/demo-debug.mp4` (2.1 MB) is the file to upload in question 13.
+The repository is public; `docs/demo-debug.mp4` (2.1 MB) is the file uploaded in question 13. Solo project.
 
 ## 1. About you
 
@@ -67,15 +67,16 @@ https://github.com/thiagoxikota/adaptive-interface
 
 ## 12. What are you sharing? (check all that apply)
 
-Check all seven: a photo of the finished build, a video of it in action, a photo of me with my build, a group or team photo, close-up / detail shots (UI), behind-the-scenes / process shot, a handwritten note. Each one has a matching file in the media folder (see the checklist at the end).
+- A photo of my finished build (the mode screenshots in docs/)
+- A video of it in action (or a screen recording)
+- Close-up / detail shots (wiring, labels, sketches, UI)
 
 ## 13. Screenshots / videos of your project (one file, 10 MB limit)
 
-Upload the live video (Thiago in front of the laptop, face and screen in the same frame, under 10 MB). If it is not ready, upload `docs/demo-debug.mp4` (2.1 MB): the interface reacting to the face, with the camera preview, the live signals and the transition reason on screen.
+Upload `docs/demo-debug.mp4` (2.1 MB): the interface reacting to the face, with the camera preview, the live signals and the transition reason on screen.
 
 ## 14. Links to additional media about your project
 
-Google Drive folder with everything (link with "anyone with the link can view"): <DRIVE_FOLDER_URL>
 Clean demo video: https://github.com/thiagoxikota/adaptive-interface/blob/main/docs/demo.mp4
 Demo GIF: https://github.com/thiagoxikota/adaptive-interface/blob/main/docs/demo.gif
 Same run with the debug panel (face and signals visible): https://github.com/thiagoxikota/adaptive-interface/blob/main/docs/demo-debug.mp4
@@ -95,16 +96,3 @@ Consent to be contacted, consent to feature (non-exclusive, royalty-free, worldw
 A dashboard that restructures itself from your face and pointer, with every decision made locally in the browser and Claude writing one line of copy after the layout has already moved.
 Built in one evening with Claude Code for Build Day, verified headless with a fake camera and clips of a real face.
 
-## Media checklist (what to shoot, in order of value to the social team)
-
-All in one Google Drive folder named `Adaptive Interface, Build Day SP 2026-09-18`, shared as view-only, link pasted in question 14. Phone in landscape, no filters. The demo runs with `npm run build && npm run preview` at http://localhost:4173/?debug=1 (the debug panel shows the camera preview, so the face is on screen in every shot).
-
-1. Live video, 30 to 45 s, phone filming from the side so face and screen share the frame: press R at a neutral distance, lean in and furrow (Simplify), sit back, smile (Expert), lean in with the pointer on the chart (Focus), lean back (Normal). Keep the toast visible; do not talk over the transitions. Export under 10 MB for the form upload (a second copy at full quality goes to the folder).
-2. Photo of the finished build: the laptop showing Expert mode with the debug panel open, straight on, no glare.
-3. Photo of me with my build: Thiago at the laptop, smiling, the screen in Expert mode showing the same smile in the camera preview.
-4. Group or team photo: the Build Day table or room, with the laptop in frame if possible.
-5. Close-ups: the signal bar with a chip armed (accent border), the toast with "Back to Normal", the Simplify stage with the big number and the dispatch button.
-6. Behind the scenes: a screenshot of the Claude Code session (cmux) with the workflow tree running, and a photo of the room at the Build Day.
-7. Handwritten note: the takeaway from question 8 written by hand on paper, photographed on the table next to the laptop.
-
-File naming: `01-live-demo.mp4`, `02-finished-build.jpg`, `03-me-with-build.jpg`, `04-team.jpg`, `05-closeup-*.jpg`, `06-process-*.jpg`, `07-handwritten-note.jpg`.
