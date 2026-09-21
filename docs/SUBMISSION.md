@@ -61,6 +61,8 @@ Write the contract before the code: the types the modules share, the thresholds,
 
 Built at the Claude Code Build Day in São Paulo on September 18, 2026. The dashboard data is fictional; the face in the demo video is mine. I run The AI Collective in Florianópolis, where a lot of our conversations are about what makes an AI interface trustworthy, and this is the smallest demo I could think of for one idea: an interface can respond to how you interact without claiming to know how you feel.
 
+Third-party assets, all used per their licenses: MediaPipe Face Landmarker model and wasm (Google, Apache 2.0), React, Vite, framer-motion and the Anthropic SDK (MIT). Solo project; the only face and voice in the materials are mine.
+
 ## 11. Link to your project (required)
 
 https://github.com/thiagoxikota/adaptive-interface
